@@ -13,9 +13,26 @@ endif(NOT CMAKE_BUILD_TYPE)
 if(NOT EMSCRIPTEN)
     find_package(SDL2 REQUIRED)
 endif()
-# we don't install Corrade/Magnum (and its CMake config files) so we need to point
+
+# we don't install Corrade/Magnum/Plugins (and their CMake config files) so we need to point
 # CMake at the FindXXX.cmake files to find them via find_package
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/3rdparty/magnum/modules/")
+# MagnumPlugins has all of them, except MagnumIntegration (which is missing MagnumPlugins)
+list(APPEND CMAKE_MODULE_PATH
+    "${PROJECT_SOURCE_DIR}/3rdparty/magnum-plugins/modules"
+    "${PROJECT_SOURCE_DIR}/3rdparty/magnum-integration/modules"
+    "${PROJECT_SOURCE_DIR}/3rdparty/ucm/cmake"
+)
+
+include(ucm)
+
+# build static libs, use static C++ runtime
+# vcpkg compiles static libs with static runtime
+# if we don't use the same setup we will get two different runtimes
+set(BUILD_SHARED_LIBS OFF)
+# CMake 3.15+ has support for this
+# https://cmake.org/cmake/help/v3.15/prop_tgt/MSVC_RUNTIME_LIBRARY.html
+# we use ucm for compatibility with older versions
+ucm_set_runtime(STATIC)
 
 add_subdirectory(3rdparty)
 add_subdirectory(src)

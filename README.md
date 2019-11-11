@@ -1,2 +1,3 @@
 # calculi
-Checkerboard rendering experiment with Magnum
+
+Checkerboard rendering experiment with [Magnum](https://magnum.graphics/)

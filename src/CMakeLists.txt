@@ -1,7 +1,10 @@
 set(SOURCES
     main.cpp
+	Application.h
+	Application.cpp
 )
 
+# Enable compiler warnings
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
 # TODO? use EmscriptenApplication
@@ -9,7 +12,10 @@ set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 # Tried it with v2019.10 and got some odd linker errors about SDL2 even
 # when building with WITH_SDL2APPLICATION=OFF
 # For now this works fine with Emscripten's SDL2 emulation
+
 find_package(Magnum REQUIRED GL Sdl2Application)
+find_package(MagnumPlugins REQUIRED)
+find_package(MagnumIntegration REQUIRED ImGui)
 
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -17,6 +23,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     Magnum::Magnum
     Magnum::Application # alias to application class being used
     Magnum::GL
+    MagnumIntegration::ImGui
 )
 
 if(MSVC)
@@ -25,7 +32,7 @@ if(MSVC)
 endif()
 
 if(EMSCRIPTEN)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/index.html ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.html @ONLY)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/index.html.in ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.html @ONLY)
 endif()
 
 # install binary (.exe/.js)
