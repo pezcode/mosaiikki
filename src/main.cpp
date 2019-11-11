@@ -1,6 +1,6 @@
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
-//#include <Magnum/Math/Color.h>
+#include <Magnum/Math/Color.h>
 
 using namespace Magnum;
 
@@ -19,9 +19,7 @@ MyApplication::MyApplication(const Arguments& arguments):
 }
 
 void MyApplication::drawEvent() {
-    GL::defaultFramebuffer.clear(GL::FramebufferClear::Color);
-    // requires WebGL 2
-    //GL::defaultFramebuffer.clearColor(Color4::cyan());
+    GL::defaultFramebuffer.clearColor(Color4::cyan());
 
     // TODO: Add your drawing code here
 
