@@ -2,7 +2,15 @@ set(SOURCES
     main.cpp
 	Application.h
 	Application.cpp
+	ImGuiApplication.h
+	ImGuiApplication.cpp
 )
+
+if(MSVC)
+	# this is required to turn off automatic scaling and
+	# get the DPI scaling factor from Magnum/SDL
+	list(APPEND SOURCES windows-dpi-awareness.manifest)
+endif()
 
 # Enable compiler warnings
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
@@ -13,13 +21,17 @@ set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 # when building with WITH_SDL2APPLICATION=OFF
 # For now this works fine with Emscripten's SDL2 emulation
 
+find_package(Corrade REQUIRED Utility)
 find_package(Magnum REQUIRED GL Sdl2Application)
 find_package(MagnumPlugins REQUIRED)
 find_package(MagnumIntegration REQUIRED ImGui)
 
-add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
+corrade_add_resource(RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../resources/resources.conf")
+
+add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${RESOURCES})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+	Corrade::Utility
     Magnum::Magnum
     Magnum::Application # alias to application class being used
     Magnum::GL

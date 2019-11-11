@@ -1,12 +1,13 @@
 #pragma once
 
-#include <Magnum/Platform/Sdl2Application.h>
+#include "ImGuiApplication.h"
 
-class Application : public Magnum::Platform::Application
+class Application : public ImGuiApplication
 {
 public:
     explicit Application(const Arguments& arguments);
 
 private:
-    void drawEvent() override;
+    virtual void drawEvent() override;
+    virtual void buildUI() override;
 };
