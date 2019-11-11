@@ -1,5 +1,9 @@
 set(BUILD_DEPRECATED OFF CACHE BOOL "" FORCE)
-set(BUILD_STATIC ON CACHE BOOL "" FORCE)
+
+if(NOT BUILD_SHARED_LIBS)
+    set(BUILD_STATIC ON CACHE BOOL "" FORCE)
+    set(BUILD_PLUGINS_STATIC ON CACHE BOOL "" FORCE)
+endif()
 
 # Corrade
 
@@ -7,9 +11,19 @@ add_subdirectory(corrade EXCLUDE_FROM_ALL)
 
 # Magnum
 
-set(BUILD_PLUGINS_STATIC ON CACHE BOOL "" FORCE)
 set(WITH_SDL2APPLICATION ON CACHE BOOL "" FORCE)
 # Use WebGL 2 (GLES 3)
 set(TARGET_GLES2 OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(magnum EXCLUDE_FROM_ALL)
+
+# Magnum plugins
+
+add_subdirectory(magnum-plugins EXCLUDE_FROM_ALL)
+
+# Magnum integration
+
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+set(WITH_IMGUI ON CACHE BOOL "" FORCE)
+
+add_subdirectory(magnum-integration EXCLUDE_FROM_ALL)
