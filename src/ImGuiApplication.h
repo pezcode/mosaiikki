@@ -6,7 +6,9 @@
 class ImGuiApplication : public Magnum::Platform::Application
 {
 public:
-    explicit ImGuiApplication(const Arguments& arguments);
+    explicit ImGuiApplication(const Arguments& arguments,
+        const Configuration& configuration = Configuration(),
+        const GLConfiguration& glConfiguration = GLConfiguration());
     ~ImGuiApplication();
 
 protected:

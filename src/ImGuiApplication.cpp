@@ -5,8 +5,10 @@
 
 namespace GL = Magnum::GL;
 
-ImGuiApplication::ImGuiApplication(const Arguments& arguments) :
-    Magnum::Platform::Application(arguments)
+ImGuiApplication::ImGuiApplication(const Arguments& arguments,
+    const Configuration& configuration,
+    const GLConfiguration& glConfiguration) :
+    Magnum::Platform::Application(arguments, configuration, glConfiguration)
 {
     ImGui::CreateContext();
     // we can't call an overridden method from the base class constructor.
