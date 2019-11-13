@@ -12,7 +12,6 @@
 #include <Magnum/Trade/SceneData.h>
 #include <Magnum/MeshTools/Compile.h>
 #include <Corrade/Utility/Arguments.h>
-#include <Corrade/Containers/Optional.h>
 #include <Corrade/PluginManager/Manager.h>
 
 using namespace Magnum;

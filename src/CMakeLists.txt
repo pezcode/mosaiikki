@@ -17,12 +17,6 @@ endif()
 # Enable compiler warnings
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
-# TODO? use EmscriptenApplication
-# https://github.com/mosra/magnum-bootstrap/tree/base-emscripten
-# Tried it with v2019.10 and got some odd linker errors about SDL2 even
-# when building with WITH_SDL2APPLICATION=OFF
-# For now this works fine with Emscripten's SDL2 emulation
-
 find_package(Corrade REQUIRED Utility)
 find_package(Magnum REQUIRED
 	Sdl2Application
@@ -59,38 +53,49 @@ if(MSVC)
 	target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
 endif()
 
+# copy/embed resources
+
 if(EMSCRIPTEN)
+	# regenerated after every change. the copy_boilerplate target
+	# is run every build to make sure it always gets copied from
+	# the intermediate binary dir to the final output dir.
 	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/index.html.in ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.html @ONLY)
 
-	# this embeds all resources into the .js
-	# TODO? use file_packager with preload and load resources.js
-	# (how to make it only run when things changed? run once during generation?)
-	include(UseEmscripten)
-	emscripten_embed_file(${CMAKE_PROJECT_NAME} "${CMAKE_SOURCE_DIR}/resources" resources)
-
-	#find_package(Python REQUIRED)
-	#add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
-	#	COMMAND ${Python_EXECUTABLE} "S:/bin/emsdk/upstream/emscripten/tools/file_packager.py"
-	#		resources.data
-	#		--preload "${CMAKE_SOURCE_DIR}/resources"
-	#		--js-output=resources.js
-	#	WORKING_DIRECTORY $<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>)
-	# TODO: set -s FORCE_FILESYSTEM=1
-else()
-	file(COPY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endif()
-
-# install binary (.exe/.js)
-install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION ${MAGNUM_DEPLOY_PREFIX})
-# for Emscripten copy/install the boilerplate next to the executable
-if(EMSCRIPTEN)
-	add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+	# copy boilerplate into build dir (HTML, CSS, scripts)
+	add_custom_target(copy_boilerplate ALL
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 			${MAGNUM_EMSCRIPTENAPPLICATION_JS}
 			${MAGNUM_WEBAPPLICATION_CSS}
 			${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.html
 			$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>)
 
+	# pack resources into .data file
+	# this is run every time the binary is regenerated
+	# TODO? only do this at configuration time (execute_process)
+	get_filename_component(EMSDK_DIR ${CMAKE_RANLIB} DIRECTORY)
+	set(FILE_PACKAGER_SCRIPT "${EMSDK_DIR}/tools/file_packager.py")
+	if(NOT EXISTS "${FILE_PACKAGER_SCRIPT}")
+		# these paths work with 1.39.1, might break at some point
+		message(FATAL_ERROR "path to file_packager.py not found")
+	endif()
+	find_package(Python REQUIRED)
+	add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+		COMMAND ${Python_EXECUTABLE} "${FILE_PACKAGER_SCRIPT}"
+			resources.data
+			--preload "${CMAKE_SOURCE_DIR}/resources@resources"
+			--exclude "*LICENSE*"
+			--js-output=resources.js
+		WORKING_DIRECTORY "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>")
+	target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "SHELL:-s FORCE_FILESYSTEM=1") # SHELL: avoids deduplication
+else()
+	file(COPY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
+# install binary + resources
+
+install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION ${MAGNUM_DEPLOY_PREFIX})
+# for Emscripten copy/install the boilerplate next to the executable
+if(EMSCRIPTEN)
 	install(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.html
 		${MAGNUM_EMSCRIPTENAPPLICATION_JS}
@@ -99,10 +104,12 @@ if(EMSCRIPTEN)
 	install(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.js.mem
 		${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.wasm
+		${CMAKE_CURRENT_BINARY_DIR}/resources.js
+		${CMAKE_CURRENT_BINARY_DIR}/resources.data
 		DESTINATION ${MAGNUM_DEPLOY_PREFIX} OPTIONAL)
 else()
 	install(DIRECTORY
-		${CMAKE_SOURCE_DIR}/resources
+		${CMAKE_CURRENT_BINARY_DIR}/resources
 		DESTINATION ${MAGNUM_DEPLOY_PREFIX})
 endif()
 
