@@ -15,8 +15,7 @@ public:
                              Magnum::Shaders::Phong& shader,
                              Magnum::GL::Mesh& mesh,
                              const Magnum::Vector3& lightPos,
-                             const Magnum::Color4& color,
-                             Magnum::SceneGraph::DrawableGroup3D& group);
+                             const Magnum::Color4& color);
 
 private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override;

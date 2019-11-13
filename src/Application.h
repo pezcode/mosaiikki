@@ -2,11 +2,14 @@
 
 #include "ImGuiApplication.h"
 #include "ColoredDrawable.h"
+#include "SingleAxisAnimable.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
+#include <Magnum/SceneGraph/AnimableGroup.h>
 #include <Magnum/Shaders/Phong.h>
+#include <Magnum/Timeline.h>
 #include <Magnum/GL/GL.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Framebuffer.h>
@@ -22,18 +25,19 @@ public:
     explicit Application(const Arguments& arguments);
 
 private:
-    virtual void drawEvent() override;
-    virtual void viewportEvent(ViewportEvent& event) override;
-    virtual void buildUI() override;
-
-    bool loadScene(const char* file);
-
-    // scene rendering
-
     typedef Magnum::SceneGraph::MatrixTransformation3D Transform3D;
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
     typedef ColoredDrawable<Transform3D> Drawable;
+    typedef SingleAxisAnimable<Transform3D> Animable;
+
+    virtual void drawEvent() override;
+    virtual void viewportEvent(ViewportEvent& event) override;
+    virtual void buildUI() override;
+
+    bool loadScene(const char* file, Object3D& parent);
+
+    // scene rendering
 
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
 
@@ -41,7 +45,9 @@ private:
     Object3D manipulator, cameraObject;
     Corrade::Containers::Pointer<Magnum::SceneGraph::Camera3D> camera;
     Magnum::SceneGraph::DrawableGroup3D drawables;
-    //Magnum::Vector3 previousPosition;
+    Magnum::SceneGraph::AnimableGroup3D animables;
+
+    Magnum::Timeline timeline;
 
     Magnum::Shaders::Phong meshShader;
     Magnum::Vector3 lightPos;

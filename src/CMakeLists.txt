@@ -6,6 +6,8 @@ set(SOURCES
 	ImGuiApplication.cpp
 	ColoredDrawable.h
 	ColoredDrawable.cpp
+	SingleAxisAnimable.h
+	SingleAxisAnimable.cpp
 )
 
 if(MSVC)

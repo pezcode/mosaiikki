@@ -64,7 +64,7 @@ Application::Application(const Arguments& arguments) :
     lightPos = { -3.0f, 10.0f, 10.0f };
 
     const char* sceneFile = "resources/models/Suzanne.glb";
-    loadScene(sceneFile);
+    loadScene(sceneFile, manipulator);
 
     // Framebuffers
 
@@ -79,10 +79,14 @@ Application::Application(const Arguments& arguments) :
         framebuffers[i].attachTexture(GL::Framebuffer::ColorAttachment(0), colorAttachments[i], 0);
         framebuffers[i].attachRenderbuffer(GL::Framebuffer::BufferAttachment::DepthStencil, depthStencilAttachments[i]);
     }
+
+    timeline.start();
 }
 
 void Application::drawEvent()
 {
+    animables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
+
     // Ubuntu purple (Mid aubergine)
     // https://design.ubuntu.com/brand/colour-palette/
     GL::Renderer::setClearColor(0x5E2750_rgbf);
@@ -109,6 +113,8 @@ void Application::drawEvent()
     // combine framebuffers
 
     ImGuiApplication::drawEvent();
+
+    timeline.nextFrame();
 }
 
 void Application::viewportEvent(ViewportEvent& event)
@@ -120,10 +126,10 @@ void Application::buildUI()
 {
     //ImGui::ShowTestWindow();
 
-    ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-        bool movingObjects = true;
+    ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+        static bool animatedObjects = true;
         bool movingCamera = true;
-        ImGui::Checkbox("Moving objects", &movingObjects);
+        ImGui::Checkbox("Animated objects", &animatedObjects);
         ImGui::Checkbox("Moving camera", &movingCamera);
         const ImVec2 margin = { 5, 5 };
         ImVec2 size = ImGui::GetWindowSize();
@@ -131,15 +137,23 @@ void Application::buildUI()
         ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
         ImGui::SetWindowPos(pos);
     ImGui::End();
+
+    for(size_t i = 0; i < animables.size(); i++)
+    {
+        animables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
+    }
 }
 
-bool Application::loadScene(const char* file)
+bool Application::loadScene(const char* file, Object3D& parent)
 {
     // TODO clear
 
     PluginManager::Manager<Trade::AbstractImporter> manager;
     Containers::Pointer<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AnySceneImporter");
     if(!importer || !importer->openFile(file))
+        return false;
+
+    if(importer->defaultScene() == -1)
         return false;
 
     meshes = Containers::Array<Containers::Optional<GL::Mesh>>{ importer->mesh3DCount() };
@@ -151,32 +165,30 @@ bool Application::loadScene(const char* file)
             meshes[i] = MeshTools::compile(*meshData);
         }
     }
+    
+    Containers::Optional<Trade::SceneData> sceneData = importer->scene(importer->defaultScene());
+    if(!sceneData)
+        return false;
 
-    if(importer->defaultScene() != -1)
+    // Add direct children
+    for(UnsignedInt objectId : sceneData->children3D())
     {
-        Containers::Optional<Trade::SceneData> sceneData = importer->scene(importer->defaultScene());
-        if(!sceneData)
-            return false;
+        // TODO recursive
+        Containers::Pointer<Trade::ObjectData3D> objectData = importer->object3D(objectId);
 
-        // Add direct children
-        for(UnsignedInt objectId : sceneData->children3D())
+        Object3D& object = parent.addChild<Object3D>();
+        object.setTransformation(objectData->transformation());
+
+        if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 && meshes[objectData->instance()])
         {
-            // TODO recursive
-            Containers::Pointer<Trade::ObjectData3D> objectData = importer->object3D(objectId);
-
-            Object3D& parent = manipulator;
-            Object3D* object = new Object3D(&parent);
-            object->setTransformation(objectData->transformation());
-
-            if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 && meshes[objectData->instance()])
-            {
-                // TODO load materials and material data
-                new Drawable { *object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf, drawables };
-            }
+            // TODO load materials and material data
+            SceneGraph::Drawable3D* drawable = new Drawable(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
+            drawables.add(*drawable);
+            SceneGraph::Animable3D* animable = new Animable(object);
+            animables.add(*animable);
+            animable->setState(SceneGraph::AnimationState::Running);
         }
     }
-    else if(!meshes.empty() && meshes[0])
-        new Drawable { manipulator, meshShader, *meshes[0], lightPos, 0xffffff_rgbf, drawables };
 
     return true;
 }
