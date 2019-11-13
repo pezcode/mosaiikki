@@ -14,7 +14,10 @@
                     <canvas id="canvas"></canvas>
                     <div id="status">Initialization...</div>
                     <div id="status-description"></div>
-                    <!-- the order here matters, resources must be loaded after the Magnum helper and the main binary -->
+                    <!--
+                        the order here matters, resources must be loaded
+                        after the Magnum helper and before the main binary
+                    -->
                     <script src="EmscriptenApplication.js"></script>
                     <script src="resources.js"></script>
                     <script src="@CMAKE_PROJECT_NAME@.js"></script>

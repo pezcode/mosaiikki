@@ -2,7 +2,7 @@
 
 #include "ImGuiApplication.h"
 #include "ColoredDrawable.h"
-#include "SingleAxisAnimable.h"
+#include "SingleAxisTranslationAnimable.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
@@ -29,7 +29,7 @@ private:
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
     typedef ColoredDrawable<Transform3D> Drawable;
-    typedef SingleAxisAnimable<Transform3D> Animable;
+    typedef SingleAxisTranslationAnimable<Transform3D> Animable;
 
     virtual void drawEvent() override;
     virtual void viewportEvent(ViewportEvent& event) override;
@@ -46,6 +46,7 @@ private:
     Corrade::Containers::Pointer<Magnum::SceneGraph::Camera3D> camera;
     Magnum::SceneGraph::DrawableGroup3D drawables;
     Magnum::SceneGraph::AnimableGroup3D animables;
+    Magnum::SceneGraph::AnimableGroup3D cameraAnimable;
 
     Magnum::Timeline timeline;
 

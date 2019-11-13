@@ -40,6 +40,8 @@ Application::Application(const Arguments& arguments) :
 
     // UI
 
+    //Transform3D test;
+
     const char* fontName = "resources/fonts/Roboto-Regular.ttf";
     setFont(fontName, 15.0f);
 
@@ -53,6 +55,10 @@ Application::Application(const Arguments& arguments) :
         .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
         .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.01f, 1000.0f))
         .setViewport(framebufferSize());
+
+    SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.0f, 0.5f);
+    cameraAnimable.add(*animable);
+    animable->setState(SceneGraph::AnimationState::Running);
 
     manipulator.setParent(&scene);
 
@@ -86,17 +92,22 @@ Application::Application(const Arguments& arguments) :
 void Application::drawEvent()
 {
     animables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
+    cameraAnimable.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
     // Ubuntu purple (Mid aubergine)
     // https://design.ubuntu.com/brand/colour-palette/
-    GL::Renderer::setClearColor(0x5E2750_rgbf);
+    const Color3 clearColor = 0x5E2750_rgbf;
+
+    //GL::defaultFramebuffer.clearColor(clearColor);
+    //GL::defaultFramebuffer.clearDepth(1.0f);
 
     GL::Framebuffer& framebuffer = framebuffers[currentFramebuffer];
 
     // render scene at half resolution
 
     framebuffer.bind();
-    framebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
+    framebuffer.clearColor(0, clearColor);
+    framebuffer.clearDepth(1.0f);
 
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
@@ -104,7 +115,7 @@ void Application::drawEvent()
     camera->draw(drawables);
 
     // blit with interpolation
-    GL::Framebuffer::blit(framebuffer, GL::defaultFramebuffer, GL::defaultFramebuffer.viewport(), GL::FramebufferBlit::Color);
+    GL::Framebuffer::blit(framebuffer, GL::defaultFramebuffer, framebuffer.viewport(), GL::defaultFramebuffer.viewport(), GL::FramebufferBlit::Color, GL::FramebufferBlitFilter::Nearest);
 
     currentFramebuffer = (currentFramebuffer + 1) % 2;
 
@@ -128,9 +139,9 @@ void Application::buildUI()
 
     ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
         static bool animatedObjects = true;
-        bool movingCamera = true;
+        static bool animatedCamera = true;
         ImGui::Checkbox("Animated objects", &animatedObjects);
-        ImGui::Checkbox("Moving camera", &movingCamera);
+        ImGui::Checkbox("Animated camera", &animatedCamera);
         const ImVec2 margin = { 5, 5 };
         ImVec2 size = ImGui::GetWindowSize();
         ImVec2 screen = ImGui::GetIO().DisplaySize;
@@ -142,6 +153,9 @@ void Application::buildUI()
     {
         animables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
     }
+
+    if(cameraAnimable.size() > 0)
+        cameraAnimable[0].setState(animatedCamera ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
 }
 
 bool Application::loadScene(const char* file, Object3D& parent)
@@ -184,7 +198,7 @@ bool Application::loadScene(const char* file, Object3D& parent)
             // TODO load materials and material data
             SceneGraph::Drawable3D* drawable = new Drawable(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
             drawables.add(*drawable);
-            SceneGraph::Animable3D* animable = new Animable(object);
+            SceneGraph::Animable3D* animable = new Animable(object, Vector3::xAxis(), 1.0f, 2.0f);
             animables.add(*animable);
             animable->setState(SceneGraph::AnimationState::Running);
         }

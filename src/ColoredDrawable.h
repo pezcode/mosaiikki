@@ -22,6 +22,6 @@ private:
 
     Magnum::Shaders::Phong& shader;
     Magnum::GL::Mesh& mesh;
-    Magnum::Vector3 lightPos;
-    Magnum::Color4 color;
+    const Magnum::Vector3 lightPos;
+    const Magnum::Color4 color;
 };
