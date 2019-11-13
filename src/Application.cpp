@@ -1,41 +1,76 @@
 #include "Application.h"
 
+#include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/GL/RenderbufferFormat.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/Math/Color.h>
+#include <Magnum/Trade/AbstractImporter.h>
+#include <Magnum/Trade/MeshData3D.h>
+#include <Magnum/Trade/MeshObjectData3D.h>
+#include <Magnum/Trade/SceneData.h>
+#include <Magnum/MeshTools/Compile.h>
 #include <Corrade/Utility/Arguments.h>
-#include <Corrade/Utility/Resource.h>
-#include <Corrade/Containers/ArrayView.h>
+#include <Corrade/Containers/Optional.h>
+#include <Corrade/PluginManager/Manager.h>
 
-namespace GL = Magnum::GL;
+using namespace Magnum;
 using namespace Corrade;
+using namespace Magnum::Math::Literals;
 
 Application::Application(const Arguments& arguments) :
-    ImGuiApplication(arguments),
+    ImGuiApplication(arguments, Configuration()
+        .setTitle("calculi")
+#ifndef CORRADE_TARGET_EMSCRIPTEN
+        .setSize({ 800, 600 })
+#endif
+    ),
     framebuffers {
-        GL::Framebuffer(Magnum::NoCreate),
-        GL::Framebuffer(Magnum::NoCreate)
+        GL::Framebuffer(NoCreate),
+        GL::Framebuffer(NoCreate)
     },
     currentFramebuffer(0)
 {
-    setWindowTitle("calculi");
-    // TODO how to set size without passing Configuration to constructor?
-
     Utility::Arguments parser;
+    parser
+        //.addArgument("file").setHelp("file", "file to load")
+        .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
+        .setGlobalHelp("Checkered rendering experiment.");
     parser.parse(arguments.argc, arguments.argv);
 
     // UI
 
-    const char* fontName = "Roboto-Regular.ttf";
-    const Containers::ArrayView<const char> font = Utility::Resource("font").getRaw(fontName);
-    setFont(font.data(), font.size(), 15.0f);
+    const char* fontName = "resources/fonts/Roboto-Regular.ttf";
+    setFont(fontName, 15.0f);
+
+    // Scene
+
+    cameraObject
+        .setParent(&scene)
+        .translate(Vector3::zAxis(3.0f));
+    camera.reset(new SceneGraph::Camera3D(cameraObject));
+    (*camera)
+        .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
+        .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.01f, 1000.0f))
+        .setViewport(framebufferSize());
+
+    manipulator.setParent(&scene);
+
+    meshShader
+        .setAmbientColor(0x111111_rgbf)
+        .setSpecularColor(0xffffff_rgbf)
+        .setShininess(80.0f);
+
+    lightPos = { -3.0f, 10.0f, 10.0f };
+
+    const char* sceneFile = "resources/models/Suzanne.glb";
+    loadScene(sceneFile);
 
     // Framebuffers
 
-    const Magnum::Vector2i size = framebufferSize();
-    CORRADE_INTERNAL_ASSERT(size % 2 == Magnum::Vector2i(0, 0));
+    const Vector2i size = framebufferSize();
+    CORRADE_INTERNAL_ASSERT(size % 2 == Vector2i(0, 0));
 
     for (size_t i = 0; i < 2; i++)
     {
@@ -51,13 +86,19 @@ void Application::drawEvent()
 {
     // Ubuntu purple (Mid aubergine)
     // https://design.ubuntu.com/brand/colour-palette/
-    const Magnum::Color3 clearColor = Magnum::Color3(0x5E, 0x27, 0x50) / 255.0f;
-    GL::Renderer::setClearColor(clearColor);
+    GL::Renderer::setClearColor(0x5E2750_rgbf);
 
     GL::Framebuffer& framebuffer = framebuffers[currentFramebuffer];
 
+    // render scene at half resolution
+
     framebuffer.bind();
     framebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
+
+    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+
+    camera->draw(drawables);
 
     // blit with interpolation
     GL::Framebuffer::blit(framebuffer, GL::defaultFramebuffer, GL::defaultFramebuffer.viewport(), GL::FramebufferBlit::Color);
@@ -66,11 +107,77 @@ void Application::drawEvent()
 
     GL::defaultFramebuffer.bind();
 
+    // combine framebuffers
+
     ImGuiApplication::drawEvent();
+}
+
+void Application::viewportEvent(ViewportEvent& event)
+{
+    camera->setViewport(event.framebufferSize());
 }
 
 void Application::buildUI()
 {
     //ImGui::ShowTestWindow();
-    ImGui::Text("Checkerboard rendering");
+
+    ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+        bool movingObjects = true;
+        bool movingCamera = true;
+        ImGui::Checkbox("Moving objects", &movingObjects);
+        ImGui::Checkbox("Moving camera", &movingCamera);
+        const ImVec2 margin = { 5, 5 };
+        ImVec2 size = ImGui::GetWindowSize();
+        ImVec2 screen = ImGui::GetIO().DisplaySize;
+        ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
+        ImGui::SetWindowPos(pos);
+    ImGui::End();
+}
+
+bool Application::loadScene(const char* file)
+{
+    // TODO clear
+
+    PluginManager::Manager<Trade::AbstractImporter> manager;
+    Containers::Pointer<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AnySceneImporter");
+    if(!importer || !importer->openFile(file))
+        return false;
+
+    meshes = Containers::Array<Containers::Optional<GL::Mesh>>{ importer->mesh3DCount() };
+    for(UnsignedInt i = 0; i < importer->mesh3DCount(); i++)
+    {
+        Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(i);
+        if(meshData && meshData->hasNormals() && GL::meshPrimitive(meshData->primitive()) == GL::MeshPrimitive::Triangles)
+        {
+            meshes[i] = MeshTools::compile(*meshData);
+        }
+    }
+
+    if(importer->defaultScene() != -1)
+    {
+        Containers::Optional<Trade::SceneData> sceneData = importer->scene(importer->defaultScene());
+        if(!sceneData)
+            return false;
+
+        // Add direct children
+        for(UnsignedInt objectId : sceneData->children3D())
+        {
+            // TODO recursive
+            Containers::Pointer<Trade::ObjectData3D> objectData = importer->object3D(objectId);
+
+            Object3D& parent = manipulator;
+            Object3D* object = new Object3D(&parent);
+            object->setTransformation(objectData->transformation());
+
+            if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 && meshes[objectData->instance()])
+            {
+                // TODO load materials and material data
+                new Drawable { *object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf, drawables };
+            }
+        }
+    }
+    else if(!meshes.empty() && meshes[0])
+        new Drawable { manipulator, meshShader, *meshes[0], lightPos, 0xffffff_rgbf, drawables };
+
+    return true;
 }

@@ -118,14 +118,13 @@ Magnum::Vector2 ImGuiApplication::uiSize() const
     return Magnum::Vector2(windowSize()) / dpiScaling();
 }
 
-void ImGuiApplication::setFont(const void* ttfData, size_t ttfSize, float pixels)
+void ImGuiApplication::setFont(const char* fontFile, float pixels)
 {
     ImGuiIO& io = ImGui::GetIO();
     io.Fonts->Clear();
     ImFontConfig fontConfig;
     fontConfig.GlyphRanges = io.Fonts->GetGlyphRangesDefault();
-    fontConfig.FontDataOwnedByAtlas = false; // caller frees memory
-    io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(ttfData), ttfSize,
+    io.Fonts->AddFontFromFileTTF(fontFile,
         pixels * framebufferSize().x() / uiSize().x(), &fontConfig);
     // update font atlas
     imgui.relayout(uiSize(), windowSize(), framebufferSize());

@@ -16,7 +16,7 @@ protected:
     Magnum::Vector2 uiSize() const;
     // convenience function that sets the GUI font
     // removes all other fonts and builds the font atlas
-    void setFont(const void* ttfData, size_t ttfSize, float pixels);
+    void setFont(const char* fontFile, float pixels);
 
     // override and build your UI with ImGui:: calls
     // called each frame

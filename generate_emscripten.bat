@@ -4,6 +4,8 @@ REM you need ninja in your PATH
 
 REM run emsdk_env beforehand so emcc is in PATH
 REM or set -D EMSCRIPTEN_PREFIX
+REM running it in the .bat instantly terminates
+REM and doesn't run any of the following commands
 
 REM crosscompiling requires a native build of corrade-rc
 REM you have to compile it seperately and add it to PATH
