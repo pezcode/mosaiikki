@@ -17,11 +17,16 @@ public:
                              const Magnum::Vector3& lightPos,
                              const Magnum::Color4& color);
 
+    ColoredDrawable(const ColoredDrawable& other, Object3D& object);
+
+    Magnum::Color4 getColor() const { return color; }
+    void setColor(const Magnum::Color4& newColor) { this->color = newColor; }
+
 private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override;
 
     Magnum::Shaders::Phong& shader;
     Magnum::GL::Mesh& mesh;
     const Magnum::Vector3 lightPos;
-    const Magnum::Color4 color;
+    Magnum::Color4 color;
 };

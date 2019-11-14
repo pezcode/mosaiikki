@@ -14,7 +14,22 @@ ColoredDrawable<Transform>::ColoredDrawable(Object3D& object,
                                             GL::Mesh& mesh,
                                             const Magnum::Vector3& lightPos,
                                             const Color4& color) :
-    SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), lightPos(lightPos), color(color)
+    SceneGraph::Drawable3D(object),
+    shader(shader),
+    mesh(mesh),
+    lightPos(lightPos),
+    color(color)
+{
+
+}
+
+template<typename Transform>
+ColoredDrawable<Transform>::ColoredDrawable(const ColoredDrawable& other, Object3D& object) :
+    SceneGraph::Drawable3D(object),
+    shader(other.shader),
+    mesh(other.mesh),
+    lightPos(other.lightPos),
+    color(other.color)
 {
 
 }

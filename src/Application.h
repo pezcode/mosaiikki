@@ -19,6 +19,10 @@
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/Optional.h>
 
+namespace Magnum { namespace Trade{
+    class AbstractImporter;
+}}
+
 class Application : public ImGuiApplication
 {
 public:
@@ -36,8 +40,10 @@ private:
     virtual void buildUI() override;
 
     bool loadScene(const char* file, Object3D& parent);
+    void addObject(Magnum::Trade::AbstractImporter& importer, Magnum::UnsignedInt objectId, Object3D& parent);
+    Object3D& duplicateObject(Object3D& object, Object3D& parent);
 
-    // scene rendering
+    // scene graph
 
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
 
@@ -45,13 +51,17 @@ private:
     Object3D manipulator, cameraObject;
     Corrade::Containers::Pointer<Magnum::SceneGraph::Camera3D> camera;
     Magnum::SceneGraph::DrawableGroup3D drawables;
-    Magnum::SceneGraph::AnimableGroup3D animables;
-    Magnum::SceneGraph::AnimableGroup3D cameraAnimable;
-
-    Magnum::Timeline timeline;
 
     Magnum::Shaders::Phong meshShader;
+    
+
+    // scene
+
+    Magnum::Timeline timeline;
+    Magnum::SceneGraph::AnimableGroup3D meshAnimables;
+    Magnum::SceneGraph::AnimableGroup3D cameraAnimable;
     Magnum::Vector3 lightPos;
+    const size_t objectCount = 4;
 
     // checkerboard rendering
 

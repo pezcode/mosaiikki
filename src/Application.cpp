@@ -13,6 +13,7 @@
 #include <Magnum/MeshTools/Compile.h>
 #include <Corrade/Utility/Arguments.h>
 #include <Corrade/PluginManager/Manager.h>
+#include <cassert>
 
 using namespace Magnum;
 using namespace Corrade;
@@ -59,7 +60,7 @@ Application::Application(const Arguments& arguments) :
         .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.01f, 1000.0f))
         .setViewport(framebufferSize());
 
-    SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.0f, 0.5f);
+    SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.5f, 0.5f);
     cameraAnimable.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
@@ -72,13 +73,25 @@ Application::Application(const Arguments& arguments) :
 
     lightPos = { -3.0f, 10.0f, 10.0f };
 
+    // Objects
+
+    Object3D& original = manipulator.addChild<Object3D>();
     std::string sceneFile = parser.value<std::string>("mesh");
-    loadScene(sceneFile.c_str(), manipulator);
+    loadScene(sceneFile.c_str(), original);
+
+    for(size_t i = 1; i < objectCount; i++)
+    {
+        Object3D& duplicated = duplicateObject(original, *original.parent());
+        duplicated.scale(Vector3(i * 2.0f));
+        duplicated.translate({ 0.0f, 0.0f, -20.0f * i * i });
+        // TODO set color
+        // TODO set animable range
+    }
 
     // Framebuffers
 
     const Vector2i size = framebufferSize();
-    CORRADE_INTERNAL_ASSERT(size % 2 == Vector2i(0, 0));
+    assert(size % 2 == Vector2i(0, 0));
 
     for (size_t i = 0; i < 2; i++)
     {
@@ -94,7 +107,7 @@ Application::Application(const Arguments& arguments) :
 
 void Application::drawEvent()
 {
-    animables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
+    meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
     cameraAnimable.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
     // Ubuntu purple (Mid aubergine)
@@ -149,9 +162,9 @@ void Application::buildUI()
         ImGui::SetWindowPos(pos);
     ImGui::End();
 
-    for(size_t i = 0; i < animables.size(); i++)
+    for(size_t i = 0; i < meshAnimables.size(); i++)
     {
-        animables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
+        meshAnimables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
     }
 
     if(cameraAnimable.size() > 0)
@@ -162,15 +175,31 @@ bool Application::loadScene(const char* file, Object3D& parent)
 {
     // TODO clear
 
+    // load importer
+
     PluginManager::Manager<Trade::AbstractImporter> manager;
     Containers::Pointer<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AnySceneImporter");
-    if(!importer || !importer->openFile(file))
+    if(!importer)
         return false;
 
-    if(importer->defaultScene() == -1)
+    // load scene
+
+    if(!importer->openFile(file))
         return false;
 
-    meshes = Containers::Array<Containers::Optional<GL::Mesh>>{ importer->mesh3DCount() };
+    if(importer->sceneCount() == 0)
+        return false;
+
+    Int sceneId = importer->defaultScene();
+    if(sceneId == -1)
+        sceneId = 0;
+    Containers::Optional<Trade::SceneData> sceneData = importer->scene(sceneId);
+    if(!sceneData)
+        return false;
+
+    // extract and compile meshes
+
+    meshes = Containers::Array<Containers::Optional<GL::Mesh>>(importer->mesh3DCount());
     for(UnsignedInt i = 0; i < importer->mesh3DCount(); i++)
     {
         Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(i);
@@ -179,30 +208,72 @@ bool Application::loadScene(const char* file, Object3D& parent)
             meshes[i] = MeshTools::compile(*meshData);
         }
     }
-    
-    Containers::Optional<Trade::SceneData> sceneData = importer->scene(importer->defaultScene());
-    if(!sceneData)
-        return false;
 
-    // Add direct children
+    // add objects recursively
+
     for(UnsignedInt objectId : sceneData->children3D())
     {
-        // TODO recursive
-        Containers::Pointer<Trade::ObjectData3D> objectData = importer->object3D(objectId);
+        addObject(*importer, objectId, parent);
+    }
 
+    return true;
+}
+
+void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objectId, Object3D& parent)
+{
+    // meshes are compiled and accesible at this point
+    // TODO materials
+
+    Containers::Pointer<Trade::ObjectData3D> objectData = importer.object3D(objectId);
+    if(objectData)
+    {
         Object3D& object = parent.addChild<Object3D>();
         object.setTransformation(objectData->transformation());
 
         if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 && meshes[objectData->instance()])
         {
-            // TODO load materials and material data
             SceneGraph::Drawable3D* drawable = new Drawable(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
             drawables.add(*drawable);
             SceneGraph::Animable3D* animable = new Animable(object, Vector3::xAxis(), 1.0f, 2.0f);
-            animables.add(*animable);
+            meshAnimables.add(*animable);
             animable->setState(SceneGraph::AnimationState::Running);
+        }
+
+        for(UnsignedInt childObjectId : objectData->children())
+        {
+            addObject(importer, childObjectId, object);
+        }
+    }
+}
+
+Application::Object3D& Application::duplicateObject(Object3D& object, Object3D& parent)
+{
+    assert(!object.isScene());
+
+    Object3D& duplicate = parent.addChild<Object3D>();
+    duplicate.setTransformation(object.transformation());
+
+    for(Object3D::FeatureType& feature : object.features())
+    {
+        Drawable* drawable = dynamic_cast<Drawable*>(&feature);
+        if(drawable)
+        {
+            Drawable* newDrawable = new Drawable(*drawable, duplicate);
+            drawables.add(*newDrawable);
+        }
+
+        Animable* animable = dynamic_cast<Animable*>(&feature);
+        if(animable)
+        {
+            Animable* newAnimable = new Animable(*animable, duplicate);
+            meshAnimables.add(*newAnimable);
         }
     }
 
-    return true;
+    for(Object3D& child : object.children())
+    {
+        duplicateObject(child, duplicate);
+    }
+
+    return duplicate;
 }

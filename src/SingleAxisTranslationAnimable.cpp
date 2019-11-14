@@ -5,7 +5,6 @@
 #include <Magnum/SceneGraph/TranslationTransformation.h>
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/RigidMatrixTransformation3D.h>
-#include <Magnum/Math/Angle.h>
 
 using namespace Magnum;
 using namespace Magnum::Math::Literals;
@@ -27,15 +26,22 @@ SingleAxisTranslationAnimable<Transform>::SingleAxisTranslationAnimable(Object3D
 }
 
 template<typename Transform>
-void SingleAxisTranslationAnimable<Transform>::animationStarted()
+SingleAxisTranslationAnimable<Transform>::SingleAxisTranslationAnimable(const SingleAxisTranslationAnimable& other, Object3D& object) :
+    SceneGraph::Animable3D(object),
+    object(object),
+    axis(other.axis),
+    range(other.range),
+    velocity(other.velocity),
+    distance(other.distance),
+    direction(other.direction)
 {
-    initialTransform = object.transformation();
+    setRepeated(true);
 }
 
 template<typename Transform>
 void SingleAxisTranslationAnimable<Transform>::animationStopped()
 {
-    object.setTransformation(initialTransform);
+    object.translate(axis * -distance);
     distance = 0.0f;
     direction = 1.0f;
 }
@@ -45,15 +51,13 @@ void SingleAxisTranslationAnimable<Transform>::animationStep(Float /*absolute*/,
 {
     float deltaDistance = direction * velocity * delta;
     float diff = Math::abs(distance + deltaDistance) - range;
-    if(diff > 0.0f)
+    while(diff > 0.0f)
     {
-        // handle reflected distance
-        // for massive deltas fmod would be better but this will
-        // ping pong to a correct solution over the next few steps
+        // handle reflected distance, important for huge deltas
         direction *= -1.0f;
         deltaDistance += 2.0f * diff * direction;
+        diff -= 2.0f * range;
     }
-
     distance += deltaDistance;
     object.translate(axis * deltaDistance);
 }
