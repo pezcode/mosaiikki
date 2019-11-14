@@ -31,19 +31,22 @@ Application::Application(const Arguments& arguments) :
     },
     currentFramebuffer(0)
 {
+    // command line
+
     Utility::Arguments parser;
     parser
-        //.addArgument("file").setHelp("file", "file to load")
+        .addOption("mesh", "resources/models/Suzanne.glb")
+            .setHelp("mesh", "mesh to load")
+        .addOption("font", "resources/fonts/Roboto-Regular.ttf")
+            .setHelp("font", "font to load")
         .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
         .setGlobalHelp("Checkered rendering experiment.");
     parser.parse(arguments.argc, arguments.argv);
 
     // UI
 
-    //Transform3D test;
-
-    const char* fontName = "resources/fonts/Roboto-Regular.ttf";
-    setFont(fontName, 15.0f);
+    std::string fontFile = parser.value<std::string>("font");
+    setFont(fontFile.c_str(), 15.0f);
 
     // Scene
 
@@ -69,8 +72,8 @@ Application::Application(const Arguments& arguments) :
 
     lightPos = { -3.0f, 10.0f, 10.0f };
 
-    const char* sceneFile = "resources/models/Suzanne.glb";
-    loadScene(sceneFile, manipulator);
+    std::string sceneFile = parser.value<std::string>("mesh");
+    loadScene(sceneFile.c_str(), manipulator);
 
     // Framebuffers
 
@@ -97,9 +100,6 @@ void Application::drawEvent()
     // Ubuntu purple (Mid aubergine)
     // https://design.ubuntu.com/brand/colour-palette/
     const Color3 clearColor = 0x5E2750_rgbf;
-
-    //GL::defaultFramebuffer.clearColor(clearColor);
-    //GL::defaultFramebuffer.clearDepth(1.0f);
 
     GL::Framebuffer& framebuffer = framebuffers[currentFramebuffer];
 
