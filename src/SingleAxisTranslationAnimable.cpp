@@ -44,14 +44,18 @@ template<typename Transform>
 void SingleAxisTranslationAnimable<Transform>::animationStep(Float /*absolute*/, Float delta)
 {
     float deltaDistance = direction * velocity * delta;
-    object.translate(axis * deltaDistance);
-    distance += deltaDistance;
-    if(Math::abs(distance) > range)
+    float diff = Math::abs(distance + deltaDistance) - range;
+    if(diff > 0.0f)
     {
-        // clamp in case delta is really high and going a step back would still exceed the range
-        distance = Math::clamp(distance, -range, range);
+        // handle reflected distance
+        // for massive deltas fmod would be better but this will
+        // ping pong to a correct solution over the next few steps
         direction *= -1.0f;
+        deltaDistance += 2.0f * diff * direction;
     }
+
+    distance += deltaDistance;
+    object.translate(axis * deltaDistance);
 }
 
 template class SingleAxisTranslationAnimable<SceneGraph::DualQuaternionTransformation>;

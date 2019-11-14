@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Magnum/Magnum.h>
 #include <Magnum/SceneGraph/Animable.h>
+#include <Magnum/Math/Vector3.h>
 
 template<typename Transform> class SingleAxisTranslationAnimable : public Magnum::SceneGraph::Animable3D
 {
