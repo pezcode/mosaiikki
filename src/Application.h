@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ImGuiApplication.h"
+#include "Feature.h"
 #include "ColoredDrawable.h"
 #include "SingleAxisTranslationAnimable.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
@@ -53,7 +54,6 @@ private:
     Magnum::SceneGraph::DrawableGroup3D drawables;
 
     Magnum::Shaders::Phong meshShader;
-    
 
     // scene
 
@@ -61,7 +61,7 @@ private:
     Magnum::SceneGraph::AnimableGroup3D meshAnimables;
     Magnum::SceneGraph::AnimableGroup3D cameraAnimable;
     Magnum::Vector3 lightPos;
-    const size_t objectCount = 4;
+    const size_t objectGridSize = 6;
 
     // checkerboard rendering
 

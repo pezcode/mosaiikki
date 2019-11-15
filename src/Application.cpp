@@ -18,20 +18,38 @@
 using namespace Magnum;
 using namespace Corrade;
 using namespace Magnum::Math::Literals;
+using namespace Feature;
 
 Application::Application(const Arguments& arguments) :
-    ImGuiApplication(arguments, Configuration()
-        .setTitle("calculi")
-#ifndef CORRADE_TARGET_EMSCRIPTEN
-        .setSize({ 800, 600 })
-#endif
-    ),
+    ImGuiApplication(arguments, NoCreate),
+    meshShader(NoCreate),
     framebuffers {
         GL::Framebuffer(NoCreate),
         GL::Framebuffer(NoCreate)
     },
+    colorAttachments{
+        GL::Texture2D(NoCreate),
+        GL::Texture2D(NoCreate)
+    },
+    depthStencilAttachments{
+        GL::Renderbuffer(NoCreate),
+        GL::Renderbuffer(NoCreate)
+    },
     currentFramebuffer(0)
 {
+    // Configuration
+
+    Configuration conf;
+    conf
+#ifndef CORRADE_TARGET_EMSCRIPTEN
+        .setSize({ 800, 600 })
+#endif
+        .setTitle("calculi");
+    GLConfiguration glConf;
+    //glConf.setSampleCount(dpiScaling.max() < 2.0f ? 8 : 2);
+    // tryCreate
+    create(conf, glConf);
+
     // command line
 
     Utility::Arguments parser;
@@ -51,16 +69,20 @@ Application::Application(const Arguments& arguments) :
 
     // Scene
 
+    lightPos = { -3.0f, 10.0f, 10.0f };
+
+    meshShader = Shaders::Phong();
+
     cameraObject
         .setParent(&scene)
-        .translate(Vector3::zAxis(3.0f));
+        .translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
     (*camera)
         .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
-        .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.01f, 1000.0f))
+        .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.01f, 100.0f))
         .setViewport(framebufferSize());
 
-    SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.5f, 0.5f);
+    SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
     cameraAnimable.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
@@ -71,21 +93,38 @@ Application::Application(const Arguments& arguments) :
         .setSpecularColor(0xffffff_rgbf)
         .setShininess(80.0f);
 
-    lightPos = { -3.0f, 10.0f, 10.0f };
-
     // Objects
 
     Object3D& original = manipulator.addChild<Object3D>();
     std::string sceneFile = parser.value<std::string>("mesh");
     loadScene(sceneFile.c_str(), original);
 
-    for(size_t i = 1; i < objectCount; i++)
+    Vector3 center((float)(objectGridSize - 1) / 2.0f);
+
+    for(size_t i = 0; i < objectGridSize; i++)
     {
-        Object3D& duplicated = duplicateObject(original, *original.parent());
-        duplicated.scale(Vector3(i * 2.0f));
-        duplicated.translate({ 0.0f, 0.0f, -20.0f * i * i });
-        // TODO set color
-        // TODO set animable range
+        for(size_t j = 0; j < objectGridSize; j++)
+        {
+            for(size_t k = 0; k < objectGridSize; k++)
+            {
+                Object3D& duplicated = duplicateObject(original, *original.parent());
+                duplicated.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
+
+                for(Drawable* drawable : featuresInChildren<Drawable>(duplicated))
+                {
+                    drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+                }
+
+                SceneGraph::Animable3D* duplicatedAnimable = new Animable(duplicated, Vector3::xAxis(), 3.0f, 1.5f);
+                meshAnimables.add(*duplicatedAnimable);
+                duplicatedAnimable->setState(SceneGraph::AnimationState::Running);
+            }
+        }
+    }
+
+    for(Drawable* drawable : featuresInChildren<Drawable>(original))
+    {
+        drawables.remove(*drawable);
     }
 
     // Framebuffers
@@ -93,10 +132,12 @@ Application::Application(const Arguments& arguments) :
     const Vector2i size = framebufferSize();
     assert(size % 2 == Vector2i(0, 0));
 
-    for (size_t i = 0; i < 2; i++)
+    for(size_t i = 0; i < 2; i++)
     {
         framebuffers[i] = GL::Framebuffer({ { 0, 0 }, size / 2 });
+        colorAttachments[i] = GL::Texture2D();
         colorAttachments[i].setStorage(1, GL::TextureFormat::RGBA8, size);
+        depthStencilAttachments[i] = GL::Renderbuffer();
         depthStencilAttachments[i].setStorage(GL::RenderbufferFormat::Depth24Stencil8, size);
         framebuffers[i].attachTexture(GL::Framebuffer::ColorAttachment(0), colorAttachments[i], 0);
         framebuffers[i].attachRenderbuffer(GL::Framebuffer::BufferAttachment::DepthStencil, depthStencilAttachments[i]);
@@ -167,6 +208,7 @@ void Application::buildUI()
         meshAnimables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
     }
 
+    // TODO rotation instead of translation animation
     if(cameraAnimable.size() > 0)
         cameraAnimable[0].setState(animatedCamera ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
 }
@@ -234,9 +276,6 @@ void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objec
         {
             SceneGraph::Drawable3D* drawable = new Drawable(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
             drawables.add(*drawable);
-            SceneGraph::Animable3D* animable = new Animable(object, Vector3::xAxis(), 1.0f, 2.0f);
-            meshAnimables.add(*animable);
-            animable->setState(SceneGraph::AnimationState::Running);
         }
 
         for(UnsignedInt childObjectId : objectData->children())
@@ -253,21 +292,11 @@ Application::Object3D& Application::duplicateObject(Object3D& object, Object3D& 
     Object3D& duplicate = parent.addChild<Object3D>();
     duplicate.setTransformation(object.transformation());
 
-    for(Object3D::FeatureType& feature : object.features())
+    Drawable* drawable = feature<Drawable>(object);
+    if(drawable)
     {
-        Drawable* drawable = dynamic_cast<Drawable*>(&feature);
-        if(drawable)
-        {
-            Drawable* newDrawable = new Drawable(*drawable, duplicate);
-            drawables.add(*newDrawable);
-        }
-
-        Animable* animable = dynamic_cast<Animable*>(&feature);
-        if(animable)
-        {
-            Animable* newAnimable = new Animable(*animable, duplicate);
-            meshAnimables.add(*newAnimable);
-        }
+        Drawable* newDrawable = new Drawable(*drawable, duplicate);
+        drawables.add(*newDrawable);
     }
 
     for(Object3D& child : object.children())

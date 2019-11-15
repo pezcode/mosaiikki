@@ -9,7 +9,11 @@ public:
     explicit ImGuiApplication(const Arguments& arguments,
         const Configuration& configuration = Configuration(),
         const GLConfiguration& glConfiguration = GLConfiguration());
+    explicit ImGuiApplication(const Arguments& arguments, Magnum::NoCreateT);
     ~ImGuiApplication();
+
+    void create(const Configuration& configuration = Configuration(), const GLConfiguration& glConfiguration = GLConfiguration());
+    bool tryCreate(const Configuration& configuration, const GLConfiguration& glConfiguration = GLConfiguration());
 
 protected:
     // user interface size (used for widget positioning)
@@ -39,5 +43,7 @@ protected:
     virtual void textInputEvent(TextInputEvent& event) override;
 
 private:
+    void init();
+
     Magnum::ImGuiIntegration::Context imgui { Magnum::NoCreate };
 };

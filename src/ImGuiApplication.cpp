@@ -3,12 +3,45 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Renderer.h>
 
-namespace GL = Magnum::GL;
+using namespace Magnum;
 
 ImGuiApplication::ImGuiApplication(const Arguments& arguments,
     const Configuration& configuration,
     const GLConfiguration& glConfiguration) :
     Magnum::Platform::Application(arguments, configuration, glConfiguration)
+{
+    init();
+}
+
+ImGuiApplication::ImGuiApplication(const Arguments& arguments, NoCreateT) :
+    Magnum::Platform::Application(arguments, NoCreate)
+{
+
+}
+
+ImGuiApplication::~ImGuiApplication()
+{
+    imgui.release();
+    ImGui::DestroyContext();
+}
+
+void ImGuiApplication::create(const Configuration& configuration, const GLConfiguration& glConfiguration)
+{
+    Platform::Application::create(configuration, glConfiguration);
+    init();
+}
+
+bool ImGuiApplication::tryCreate(const Configuration& configuration, const GLConfiguration& glConfiguration)
+{
+    if(Platform::Application::tryCreate(configuration, glConfiguration))
+    {
+        init();
+        return true;
+    }
+    return false;
+}
+
+void ImGuiApplication::init()
 {
     ImGui::CreateContext();
     // we can't call an overridden method from the base class constructor.
@@ -18,12 +51,6 @@ ImGuiApplication::ImGuiApplication(const Arguments& arguments,
     // not a massive deal, but one workaround would be creating the
     // implementation instance in the first drawEvent.
     imgui = Magnum::ImGuiIntegration::Context(*ImGui::GetCurrentContext(), uiSize(), windowSize(), framebufferSize());
-}
-
-ImGuiApplication::~ImGuiApplication()
-{
-    imgui.release();
-    ImGui::DestroyContext();
 }
 
 void ImGuiApplication::drawEvent()

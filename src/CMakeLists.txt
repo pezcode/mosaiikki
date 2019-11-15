@@ -4,10 +4,9 @@ set(SOURCES
 	Application.cpp
 	ImGuiApplication.h
 	ImGuiApplication.cpp
+	Feature.h
 	ColoredDrawable.h
-	ColoredDrawable.cpp
 	SingleAxisTranslationAnimable.h
-	SingleAxisTranslationAnimable.cpp
 )
 
 if(MSVC)

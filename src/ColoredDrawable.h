@@ -15,15 +15,41 @@ public:
                              Magnum::Shaders::Phong& shader,
                              Magnum::GL::Mesh& mesh,
                              const Magnum::Vector3& lightPos,
-                             const Magnum::Color4& color);
+                             const Magnum::Color4& color) :
+        Magnum::SceneGraph::Drawable3D(object),
+        shader(shader),
+        mesh(mesh),
+        lightPos(lightPos),
+        color(color)
+    {
 
-    ColoredDrawable(const ColoredDrawable& other, Object3D& object);
+    }
+
+    ColoredDrawable(const ColoredDrawable& other, Object3D& object) :
+        Magnum::SceneGraph::Drawable3D(object),
+        shader(other.shader),
+        mesh(other.mesh),
+        lightPos(other.lightPos),
+        color(other.color)
+    {
+
+    }
 
     Magnum::Color4 getColor() const { return color; }
     void setColor(const Magnum::Color4& newColor) { this->color = newColor; }
 
 private:
-    virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override;
+    virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
+    {
+        shader
+            .setDiffuseColor(color)
+            .setLightPosition(camera.cameraMatrix().transformPoint(lightPos))
+            .setTransformationMatrix(transformationMatrix)
+            .setNormalMatrix(transformationMatrix.normalMatrix())
+            .setProjectionMatrix(camera.projectionMatrix());
+
+        mesh.draw(shader);
+    }
 
     Magnum::Shaders::Phong& shader;
     Magnum::GL::Mesh& mesh;
