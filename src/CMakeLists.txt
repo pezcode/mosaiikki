@@ -7,6 +7,10 @@ set(SOURCES
 	Feature.h
 	ColoredDrawable.h
 	SingleAxisTranslationAnimable.h
+	Shaders/ReconstructionShader.h
+	Shaders/ReconstructionShader.cpp
+	Shaders/ReconstructionShader.vert
+	Shaders/ReconstructionShader.frag
 )
 
 if(MSVC)
@@ -31,7 +35,10 @@ find_package(Magnum REQUIRED
 find_package(MagnumPlugins REQUIRED TinyGltfImporter)
 find_package(MagnumIntegration REQUIRED ImGui)
 
-add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
+# embed shaders
+corrade_add_resource(SHADER_RESOURCES Shaders/resources.conf)
+
+add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${SHADER_RESOURCES})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	Corrade::Utility
@@ -54,7 +61,7 @@ if(MSVC)
 	target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
 endif()
 
-# copy/embed resources
+# copy/embed resources folder
 
 if(EMSCRIPTEN)
 	# regenerated after every change. the copy_boilerplate target

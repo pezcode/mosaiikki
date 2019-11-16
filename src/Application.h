@@ -4,6 +4,7 @@
 #include "Feature.h"
 #include "ColoredDrawable.h"
 #include "SingleAxisTranslationAnimable.h"
+#include "Shaders/ReconstructionShader.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
@@ -14,6 +15,8 @@
 #include <Magnum/GL/GL.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Framebuffer.h>
+#include <Magnum/GL/Texture.h>
+#include <Magnum/GL/MultisampleTexture.h>
 #include <Magnum/GL/Renderbuffer.h>
 #include <Magnum/Math/Color.h>
 #include <Corrade/Containers/Pointer.h>
@@ -67,9 +70,13 @@ private:
 
     // checkerboard framebuffers
     // quarter size (half width, half height)
+    // WebGL 2 doesn't support multisample textures, only multisample renderbuffers
+    // we can't attach a renderbuffer in the shader so no WebGL support :(
     Magnum::GL::Framebuffer framebuffers[2];
-    Magnum::GL::Texture2D colorAttachments[2];
+    Magnum::GL::MultisampleTexture2D colorAttachments[2];
     Magnum::GL::Renderbuffer depthStencilAttachments[2];
 
     size_t currentFramebuffer;
+
+    ReconstructionShader reconstructionShader;
 };

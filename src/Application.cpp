@@ -1,16 +1,17 @@
 #include "Application.h"
 
 #include <Magnum/Platform/Sdl2Application.h>
+#include <Magnum/GL/Version.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/GL/RenderbufferFormat.h>
 #include <Magnum/GL/Renderer.h>
-#include <Magnum/Math/Color.h>
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/MeshData3D.h>
 #include <Magnum/Trade/MeshObjectData3D.h>
 #include <Magnum/Trade/SceneData.h>
 #include <Magnum/MeshTools/Compile.h>
+#include <Magnum/Math/Color.h>
 #include <Corrade/Utility/Arguments.h>
 #include <Corrade/PluginManager/Manager.h>
 #include <cassert>
@@ -28,14 +29,15 @@ Application::Application(const Arguments& arguments) :
         GL::Framebuffer(NoCreate)
     },
     colorAttachments{
-        GL::Texture2D(NoCreate),
-        GL::Texture2D(NoCreate)
+        GL::MultisampleTexture2D(NoCreate),
+        GL::MultisampleTexture2D(NoCreate)
     },
     depthStencilAttachments{
         GL::Renderbuffer(NoCreate),
         GL::Renderbuffer(NoCreate)
     },
-    currentFramebuffer(0)
+    currentFramebuffer(0),
+    reconstructionShader(NoCreate)
 {
     // Configuration
 
@@ -46,6 +48,7 @@ Application::Application(const Arguments& arguments) :
 #endif
         .setTitle("calculi");
     GLConfiguration glConf;
+    glConf.setVersion(GL::Version::GL330);
     //glConf.setSampleCount(dpiScaling.max() < 2.0f ? 8 : 2);
     // tryCreate
     create(conf, glConf);
@@ -135,13 +138,22 @@ Application::Application(const Arguments& arguments) :
     for(size_t i = 0; i < 2; i++)
     {
         framebuffers[i] = GL::Framebuffer({ { 0, 0 }, size / 2 });
-        colorAttachments[i] = GL::Texture2D();
-        colorAttachments[i].setStorage(1, GL::TextureFormat::RGBA8, size);
+        colorAttachments[i] = GL::MultisampleTexture2D();
+        colorAttachments[i].setStorage(4, GL::TextureFormat::RGBA8, size / 2, GL::MultisampleTextureSampleLocations::Fixed);
         depthStencilAttachments[i] = GL::Renderbuffer();
-        depthStencilAttachments[i].setStorage(GL::RenderbufferFormat::Depth24Stencil8, size);
-        framebuffers[i].attachTexture(GL::Framebuffer::ColorAttachment(0), colorAttachments[i], 0);
+        depthStencilAttachments[i].setStorageMultisample(4, GL::RenderbufferFormat::Depth24Stencil8, size / 2);
+        framebuffers[i].attachTexture(GL::Framebuffer::ColorAttachment(0), colorAttachments[i]);
         framebuffers[i].attachRenderbuffer(GL::Framebuffer::BufferAttachment::DepthStencil, depthStencilAttachments[i]);
+
+        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
+        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
     }
+
+    GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
+
+    // 
+
+    reconstructionShader = ReconstructionShader();
 
     timeline.start();
 }
@@ -153,7 +165,8 @@ void Application::drawEvent()
 
     // Ubuntu purple (Mid aubergine)
     // https://design.ubuntu.com/brand/colour-palette/
-    const Color3 clearColor = 0x5E2750_rgbf;
+    //const Color3 clearColor = 0x5E2750_rgbf;
+    const Color3 clearColor = 0x111111_rgbf;
 
     GL::Framebuffer& framebuffer = framebuffers[currentFramebuffer];
 
@@ -168,16 +181,22 @@ void Application::drawEvent()
 
     camera->draw(drawables);
 
-    // blit with interpolation
-    GL::Framebuffer::blit(framebuffer, GL::defaultFramebuffer, framebuffer.viewport(), GL::defaultFramebuffer.viewport(), GL::FramebufferBlit::Color, GL::FramebufferBlitFilter::Nearest);
-
-    currentFramebuffer = (currentFramebuffer + 1) % 2;
+    // combine framebuffers
 
     GL::defaultFramebuffer.bind();
 
-    // combine framebuffers
+    GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+
+    reconstructionShader
+        .bindCurrentColorAttachment(colorAttachments[currentFramebuffer])
+        .bindPreviousColorAttachment(colorAttachments[1 - currentFramebuffer])
+        .draw();
+
+    // user interface
 
     ImGuiApplication::drawEvent();
+
+    currentFramebuffer = (currentFramebuffer + 1) % 2;
 
     timeline.nextFrame();
 }
