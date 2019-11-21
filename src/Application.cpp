@@ -2,6 +2,9 @@
 
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/GL/Version.h>
+#include <Magnum/GL/Context.h>
+#include <Magnum/GL/Extensions.h>
+#include <Magnum/GL/DebugOutput.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/GL/RenderbufferFormat.h>
@@ -13,6 +16,7 @@
 #include <Magnum/MeshTools/Compile.h>
 #include <Magnum/Math/Color.h>
 #include <Corrade/Utility/Arguments.h>
+#include <Corrade/Utility/Format.h>
 #include <Corrade/PluginManager/Manager.h>
 #include <cassert>
 
@@ -28,14 +32,8 @@ Application::Application(const Arguments& arguments) :
         GL::Framebuffer(NoCreate),
         GL::Framebuffer(NoCreate)
     },
-    colorAttachments{
-        GL::MultisampleTexture2D(NoCreate),
-        GL::MultisampleTexture2D(NoCreate)
-    },
-    depthStencilAttachments{
-        GL::Renderbuffer(NoCreate),
-        GL::Renderbuffer(NoCreate)
-    },
+    colorAttachments(NoCreate),
+    depthAttachments(NoCreate),
     currentFramebuffer(0),
     reconstructionShader(NoCreate)
 {
@@ -48,10 +46,27 @@ Application::Application(const Arguments& arguments) :
 #endif
         .setTitle("calculi");
     GLConfiguration glConf;
-    glConf.setVersion(GL::Version::GL330);
-    //glConf.setSampleCount(dpiScaling.max() < 2.0f ? 8 : 2);
-    // tryCreate
+    glConf.setVersion(GL::Version::GL320);
+#ifdef CORRADE_IS_DEBUG_BUILD
+    glConf.addFlags(GLConfiguration::Flag::Debug);
+#endif
     create(conf, glConf);
+
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading); // core in 4.0
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample); // core in 3.2
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
+    //MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_locations);
+
+#ifdef CORRADE_IS_DEBUG_BUILD
+    GL::DebugOutput::setDefaultCallback();
+    // disable unimportant output
+    // markers and groups are only used for RenderDoc
+    GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Application, GL::DebugOutput::Type::Marker, false);
+    GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Application, GL::DebugOutput::Type::PushGroup, false);
+    GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Application, GL::DebugOutput::Type::PopGroup, false);
+    // Nvidia drivers: "Buffer detailed info"
+    GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
+#endif
 
     // command line
 
@@ -74,27 +89,20 @@ Application::Application(const Arguments& arguments) :
 
     lightPos = { -3.0f, 10.0f, 10.0f };
 
-    meshShader = Shaders::Phong();
-
     cameraObject
         .setParent(&scene)
         .translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
     (*camera)
         .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
-        .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.01f, 100.0f))
-        .setViewport(framebufferSize());
+        .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.5f, 50.0f))
+        .setViewport(framebufferSize() / 2.0f);
 
     SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
-    cameraAnimable.add(*animable);
+    cameraAnimables.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
     manipulator.setParent(&scene);
-
-    meshShader
-        .setAmbientColor(0x111111_rgbf)
-        .setSpecularColor(0xffffff_rgbf)
-        .setShininess(80.0f);
 
     // Objects
 
@@ -135,25 +143,63 @@ Application::Application(const Arguments& arguments) :
     const Vector2i size = framebufferSize();
     assert(size % 2 == Vector2i(0, 0));
 
-    for(size_t i = 0; i < 2; i++)
+    Vector2i halfSize = size / 2;
+    Vector3i arraySize = { halfSize, FRAMES };
+
+    colorAttachments = GL::MultisampleTexture2DArray();
+    colorAttachments.setStorage(2, GL::TextureFormat::RGBA8, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
+    colorAttachments.setLabel("Color texture array (half-res 2x MSAA)");
+    depthAttachments = GL::MultisampleTexture2DArray();
+    depthAttachments.setStorage(2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
+    depthAttachments.setLabel("Depth texture array (half-res 2x MSAA)");
+
+    for(size_t i = 0; i < FRAMES; i++)
     {
-        framebuffers[i] = GL::Framebuffer({ { 0, 0 }, size / 2 });
-        colorAttachments[i] = GL::MultisampleTexture2D();
-        colorAttachments[i].setStorage(4, GL::TextureFormat::RGBA8, size / 2, GL::MultisampleTextureSampleLocations::Fixed);
-        depthStencilAttachments[i] = GL::Renderbuffer();
-        depthStencilAttachments[i].setStorageMultisample(4, GL::RenderbufferFormat::Depth24Stencil8, size / 2);
-        framebuffers[i].attachTexture(GL::Framebuffer::ColorAttachment(0), colorAttachments[i]);
-        framebuffers[i].attachRenderbuffer(GL::Framebuffer::BufferAttachment::DepthStencil, depthStencilAttachments[i]);
+        framebuffers[i] = GL::Framebuffer({ { 0, 0 }, halfSize });
+        framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
+        framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
+
+        Containers::Array<char> label = Utility::format( "Framebuffer {} (half-res)", i + 1);
+        framebuffers[i].setLabel(label.data());
 
         assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
         assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
     }
 
     GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
+    GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
 
-    // 
+    framebuffers[0].bind();
+
+    // 0: (0.75, 0.75)
+    // 1: (0.25, 0.25)
+    // seems to be the opposite of the D3D11 pattern
+    // https://docs.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels
+    float samplePositions[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+    glGetMultisamplefv(GL_SAMPLE_POSITION, 0, samplePositions[0]);
+    glGetMultisamplefv(GL_SAMPLE_POSITION, 1, samplePositions[1]);
+
+    // TODO set sample locations ourselves
+    // glFramebufferSampleLocationsfv
+    // requires GL 4.5
+    // need to update Magnum
+
+    Debug(Debug::Flag::NoSpace) << "MSAA 2x sample positions:" << Debug::newline
+        << "(" << samplePositions[0][0] << ", " << samplePositions[0][1] << ")" << Debug::newline
+        << "(" << samplePositions[1][0] << ", " << samplePositions[1][1] << ")";
+
+    // Shaders
+
+    meshShader = Shaders::Phong();
+    meshShader
+        .setAmbientColor(0x111111_rgbf)
+        .setSpecularColor(0xffffff_rgbf)
+        .setShininess(80.0f);
+    meshShader.setLabel("Phong shader");
 
     reconstructionShader = ReconstructionShader();
+    reconstructionShader.setDebugShowSamples(ReconstructionShader::DebugSamples::Disabled);
+    reconstructionShader.setLabel("Checkerboard resolve shader");
 
     timeline.start();
 }
@@ -161,49 +207,84 @@ Application::Application(const Arguments& arguments) :
 void Application::drawEvent()
 {
     meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
-    cameraAnimable.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
-
-    // Ubuntu purple (Mid aubergine)
-    // https://design.ubuntu.com/brand/colour-palette/
-    //const Color3 clearColor = 0x5E2750_rgbf;
-    const Color3 clearColor = 0x111111_rgbf;
+    cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
     GL::Framebuffer& framebuffer = framebuffers[currentFramebuffer];
 
+    // jitter camera if necessary
+
+    Matrix4 projectionMatrix = camera->projectionMatrix();
+    if(currentFramebuffer == JITTERED_FRAME)
+    {
+        // half a pixel to the left = one pixel in the combined framebuffer
+        // width of NDC divided by pixel count
+        const float offset = (2.0f / camera->viewport().x()) / 2.0f;
+        Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
+        camera->setProjectionMatrix(jitteredMatrix);
+    }
+
     // render scene at half resolution
 
-    framebuffer.bind();
-    framebuffer.clearColor(0, clearColor);
-    framebuffer.clearDepth(1.0f);
+    {
+        GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (half-res)");
 
-    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
-    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+        framebuffer.bind();
+        const Color3 clearColor = 0x111111_rgbf;
+        framebuffer.clearColor(0, clearColor);
+        framebuffer.clearDepth(1.0f);
 
-    camera->draw(drawables);
+        GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+        GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+
+        // run fragment shader for each sample
+        GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
+        GL::Renderer::setMinSampleShading(1.0f);
+
+        camera->draw(drawables);
+
+        GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
+        GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+    }
 
     // combine framebuffers
 
-    GL::defaultFramebuffer.bind();
+    {
+        GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
 
-    GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+        GL::defaultFramebuffer.bind();
 
-    reconstructionShader
-        .bindCurrentColorAttachment(colorAttachments[currentFramebuffer])
-        .bindPreviousColorAttachment(colorAttachments[1 - currentFramebuffer])
-        .draw();
+        reconstructionShader
+            .bindColor(colorAttachments)
+            .bindDepth(depthAttachments)
+            .setCurrentFrame(currentFramebuffer)
+            .setCameraInfo(*camera)
+            .draw();
+    }
 
-    // user interface
+    // undo jitter
 
-    ImGuiApplication::drawEvent();
+    camera->setProjectionMatrix(projectionMatrix);
+
+    // render UI
+
+    {
+        GL::DebugGroup group(GL::DebugGroup::Source::Application, 2, "imgui");
+        
+        ImGuiApplication::drawEvent();
+    }
+
+    // housekeeping
 
     currentFramebuffer = (currentFramebuffer + 1) % 2;
-
     timeline.nextFrame();
+
+    swapBuffers();
+    redraw();
 }
 
 void Application::viewportEvent(ViewportEvent& event)
 {
-    camera->setViewport(event.framebufferSize());
+    camera->setViewport(event.framebufferSize() / 2);
 }
 
 void Application::buildUI()
@@ -211,10 +292,19 @@ void Application::buildUI()
     //ImGui::ShowTestWindow();
 
     ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-        static bool animatedObjects = true;
-        static bool animatedCamera = true;
+        static bool animatedObjects = false;
+        static bool animatedCamera = false;
         ImGui::Checkbox("Animated objects", &animatedObjects);
         ImGui::Checkbox("Animated camera", &animatedCamera);
+
+        ImGui::Separator();
+
+        float w = ImGui::CalcItemWidth() / 3.0f;
+        ImGui::SetNextItemWidth(w);
+        static int debugSamples = (int)ReconstructionShader::DebugSamples::Disabled;
+        const char* const debugSamplesOptions[] = { "Disabled", "Even", "Odd" };
+        ImGui::Combo("Show samples", &debugSamples, debugSamplesOptions, 3);
+
         const ImVec2 margin = { 5, 5 };
         ImVec2 size = ImGui::GetWindowSize();
         ImVec2 screen = ImGui::GetIO().DisplaySize;
@@ -222,14 +312,16 @@ void Application::buildUI()
         ImGui::SetWindowPos(pos);
     ImGui::End();
 
+    reconstructionShader.setDebugShowSamples((ReconstructionShader::DebugSamples)debugSamples);
+
     for(size_t i = 0; i < meshAnimables.size(); i++)
     {
         meshAnimables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
     }
 
     // TODO rotation instead of translation animation
-    if(cameraAnimable.size() > 0)
-        cameraAnimable[0].setState(animatedCamera ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
+    if(cameraAnimables.size() > 0)
+        cameraAnimables[0].setState(animatedCamera ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
 }
 
 bool Application::loadScene(const char* file, Object3D& parent)
@@ -282,7 +374,7 @@ bool Application::loadScene(const char* file, Object3D& parent)
 
 void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objectId, Object3D& parent)
 {
-    // meshes are compiled and accesible at this point
+    // meshes are compiled and accessible at this point
     // TODO materials
 
     Containers::Pointer<Trade::ObjectData3D> objectData = importer.object3D(objectId);

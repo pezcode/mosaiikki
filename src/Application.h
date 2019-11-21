@@ -23,7 +23,7 @@
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/Optional.h>
 
-namespace Magnum { namespace Trade{
+namespace Magnum { namespace Trade {
     class AbstractImporter;
 }}
 
@@ -62,19 +62,22 @@ private:
 
     Magnum::Timeline timeline;
     Magnum::SceneGraph::AnimableGroup3D meshAnimables;
-    Magnum::SceneGraph::AnimableGroup3D cameraAnimable;
+    Magnum::SceneGraph::AnimableGroup3D cameraAnimables;
     Magnum::Vector3 lightPos;
     const size_t objectGridSize = 6;
 
     // checkerboard rendering
 
+    static constexpr size_t FRAMES = 2;
+    static constexpr size_t JITTERED_FRAME = 1;
+
     // checkerboard framebuffers
     // quarter size (half width, half height)
     // WebGL 2 doesn't support multisample textures, only multisample renderbuffers
     // we can't attach a renderbuffer in the shader so no WebGL support :(
-    Magnum::GL::Framebuffer framebuffers[2];
-    Magnum::GL::MultisampleTexture2D colorAttachments[2];
-    Magnum::GL::Renderbuffer depthStencilAttachments[2];
+    Magnum::GL::Framebuffer framebuffers[FRAMES];
+    Magnum::GL::MultisampleTexture2DArray colorAttachments;
+    Magnum::GL::MultisampleTexture2DArray depthAttachments;
 
     size_t currentFramebuffer;
 

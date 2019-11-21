@@ -85,9 +85,6 @@ void ImGuiApplication::drawEvent()
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
     GL::Renderer::disable(GL::Renderer::Feature::ScissorTest);
     GL::Renderer::disable(GL::Renderer::Feature::Blending);
-
-    swapBuffers();
-    redraw();
 }
 
 // this is not necessarily called for DPI changes (at least not on Windows).

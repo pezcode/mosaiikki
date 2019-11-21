@@ -1,6 +1,9 @@
 /build/
 /build_emscripten/
 
+# RenderDoc
+/*.cap
+
 # Prerequisites
 *.d
 
