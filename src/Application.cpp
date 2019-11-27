@@ -196,7 +196,8 @@ Application::Application(const Arguments& arguments) :
     // requires GL 4.5
     // need to update Magnum
 
-    Debug() << "MSAA 2x sample positions:" << Debug::newline
+    Debug(Debug::Flag::NoSpace)
+        << "MSAA 2x sample positions:" << Debug::newline
         << "(" << samplePositions[0][0] << ", " << samplePositions[0][1] << ")" << Debug::newline
         << "(" << samplePositions[1][0] << ", " << samplePositions[1][1] << ")";
 

@@ -22,7 +22,7 @@ endif()
 # Enable compiler warnings
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
-find_package(Corrade REQUIRED Utility)
+find_package(Corrade REQUIRED Main Utility)
 find_package(Magnum REQUIRED
 	Sdl2Application
 	GL
@@ -38,9 +38,10 @@ find_package(MagnumIntegration REQUIRED ImGui)
 # embed shaders
 corrade_add_resource(SHADER_RESOURCES Shaders/resources.conf)
 
-add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${SHADER_RESOURCES})
+add_executable(${CMAKE_PROJECT_NAME} WIN32 ${SOURCES} ${SHADER_RESOURCES})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+	Corrade::Main
 	Corrade::Utility
 	Magnum::Magnum
 	Magnum::Application # alias to application class being used
@@ -58,7 +59,7 @@ if(MSVC)
 	# hide console window
 	# target_link_options requires CMake 3.13+
 	# (is there an easy alternative for earlier versions?)
-	target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
+	#target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
 endif()
 
 # copy/embed resources folder
