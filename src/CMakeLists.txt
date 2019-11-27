@@ -58,7 +58,7 @@ if(MSVC)
 	# hide console window
 	# target_link_options requires CMake 3.13+
 	# (is there an easy alternative for earlier versions?)
-	#target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
+	target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
 endif()
 
 # copy/embed resources folder

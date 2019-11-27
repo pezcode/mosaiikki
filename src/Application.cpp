@@ -27,6 +27,8 @@ using namespace Feature;
 
 Application::Application(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
+    logFile("calculi.log", std::fstream::out | std::fstream::trunc),
+    debug(nullptr),
     meshShader(NoCreate),
     framebuffers {
         GL::Framebuffer(NoCreate),
@@ -34,9 +36,16 @@ Application::Application(const Arguments& arguments) :
     },
     colorAttachments(NoCreate),
     depthAttachments(NoCreate),
-    currentFramebuffer(0),
+    currentFrame(0),
     reconstructionShader(NoCreate)
 {
+    // Log
+
+    if(logFile.good())
+        debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
+    else
+        debug = Corrade::Containers::pointer<Utility::Debug>();
+
     // Configuration
 
     Configuration conf;
@@ -52,9 +61,12 @@ Application::Application(const Arguments& arguments) :
 #endif
     create(conf, glConf);
 
+    //setSwapInterval(0); // disable v-sync
+
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading); // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample); // core in 3.2
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
+    // really only supported by Nvidia
     //MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_locations);
 
 #ifdef CORRADE_IS_DEBUG_BUILD
@@ -96,7 +108,7 @@ Application::Application(const Arguments& arguments) :
     (*camera)
         .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
         .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.5f, 50.0f))
-        .setViewport(framebufferSize() / 2.0f);
+        .setViewport(framebufferSize());
 
     SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
     cameraAnimables.add(*animable);
@@ -184,7 +196,7 @@ Application::Application(const Arguments& arguments) :
     // requires GL 4.5
     // need to update Magnum
 
-    Debug(Debug::Flag::NoSpace) << "MSAA 2x sample positions:" << Debug::newline
+    Debug() << "MSAA 2x sample positions:" << Debug::newline
         << "(" << samplePositions[0][0] << ", " << samplePositions[0][1] << ")" << Debug::newline
         << "(" << samplePositions[1][0] << ", " << samplePositions[1][1] << ")";
 
@@ -209,16 +221,16 @@ void Application::drawEvent()
     meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
     cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
-    GL::Framebuffer& framebuffer = framebuffers[currentFramebuffer];
+    GL::Framebuffer& framebuffer = framebuffers[currentFrame];
 
     // jitter camera if necessary
 
     Matrix4 projectionMatrix = camera->projectionMatrix();
-    if(currentFramebuffer == JITTERED_FRAME)
+    if(currentFrame == JITTERED_FRAME)
     {
-        // half a pixel to the left = one pixel in the combined framebuffer
+        // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
         // width of NDC divided by pixel count
-        const float offset = (2.0f / camera->viewport().x()) / 2.0f;
+        const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
         Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
         camera->setProjectionMatrix(jitteredMatrix);
     }
@@ -246,6 +258,10 @@ void Application::drawEvent()
         GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
     }
 
+    // undo jitter
+
+    camera->setProjectionMatrix(projectionMatrix);
+
     // combine framebuffers
 
     {
@@ -256,14 +272,10 @@ void Application::drawEvent()
         reconstructionShader
             .bindColor(colorAttachments)
             .bindDepth(depthAttachments)
-            .setCurrentFrame(currentFramebuffer)
+            .setCurrentFrame(currentFrame)
             .setCameraInfo(*camera)
             .draw();
     }
-
-    // undo jitter
-
-    camera->setProjectionMatrix(projectionMatrix);
 
     // render UI
 
@@ -275,7 +287,7 @@ void Application::drawEvent()
 
     // housekeeping
 
-    currentFramebuffer = (currentFramebuffer + 1) % 2;
+    currentFrame = (currentFrame + 1) % FRAMES;
     timeline.nextFrame();
 
     swapBuffers();
@@ -284,7 +296,7 @@ void Application::drawEvent()
 
 void Application::viewportEvent(ViewportEvent& event)
 {
-    camera->setViewport(event.framebufferSize() / 2);
+    camera->setViewport(event.framebufferSize());
 }
 
 void Application::buildUI()

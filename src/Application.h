@@ -19,9 +19,11 @@
 #include <Magnum/GL/MultisampleTexture.h>
 #include <Magnum/GL/Renderbuffer.h>
 #include <Magnum/Math/Color.h>
+#include <Corrade/Utility/Debug.h>
 #include <Corrade/Containers/Pointer.h>
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/Optional.h>
+#include <fstream>
 
 namespace Magnum { namespace Trade {
     class AbstractImporter;
@@ -46,6 +48,13 @@ private:
     bool loadScene(const char* file, Object3D& parent);
     void addObject(Magnum::Trade::AbstractImporter& importer, Magnum::UnsignedInt objectId, Object3D& parent);
     Object3D& duplicateObject(Object3D& object, Object3D& parent);
+
+    // log
+
+    std::fstream logFile;
+    // having one instance of Debug with a custom ostream is enough
+    // to override all Debug instances created later globally
+    Corrade::Containers::Pointer<Corrade::Utility::Debug> debug;
 
     // scene graph
 
@@ -79,7 +88,7 @@ private:
     Magnum::GL::MultisampleTexture2DArray colorAttachments;
     Magnum::GL::MultisampleTexture2DArray depthAttachments;
 
-    size_t currentFramebuffer;
+    size_t currentFrame;
 
     ReconstructionShader reconstructionShader;
 };
