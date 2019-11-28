@@ -12,8 +12,8 @@ uniform int currentFrame;
 
 uniform bool resolutionChanged;
 uniform ivec2 viewport;
-uniform mat4 viewProjection;
-uniform mat4 prevInvViewProjection;
+uniform mat4 prevViewProjection;
+uniform mat4 invViewProjection;
 
 uniform int debugShowSamples;
 
@@ -47,7 +47,7 @@ layout(location = 0) out vec4 fragColor;
 // | 0 | 1 |
 // +---+---+
 
-// samples:
+// sample positions:
 // +---+---+
 // |   | 0 |
 // +---+---+
@@ -82,22 +82,18 @@ vec4 fetchQuadrant(sampler2DMSArray tex, ivec2 coords, int quadrant)
 		return texelFetch(tex, ivec3(coords, 0), 0);
 }
 
-vec4 screen2World(vec4 coord)
+ivec2 reprojectPixel(ivec2 coords, float depth)
 {
-	coord.xy /= viewport;
-	vec4 ndc = coord * 2.0 - 1.0;
-    vec4 eye = prevInvViewProjection * ndc;
-    return eye / eye.w;
-}
-
-ivec2 reprojectPixel(ivec2 oldCoord, float depth)
-{
-	vec4 fragCoord = vec4(vec2(oldCoord), depth, 1.0);
-	vec4 world = screen2World(fragCoord);
-	vec4 ndc = viewProjection * world;
-	ndc /= ndc.w;
-	vec2 newCoord = ndc.xy * 0.5 + 0.5;
-	return ivec2(floor(newCoord * viewport));
+	vec2 screen = vec2(coords) + 0.5; // gl_FragCoord x/y are located at half-pixel centers, undo the flooring
+	vec3 ndc = vec3(screen / viewport, depth) * 2.0 - 1.0;
+	vec4 clip = vec4(ndc, 1.0);
+	vec4 world = invViewProjection * clip;
+	world /= world.w;
+	clip = prevViewProjection * world;
+	ndc = clip.xyz / clip.w;
+	screen = (ndc.xy * 0.5 + 0.5) * viewport;
+	coords = ivec2(floor(screen));
+	return coords;
 }
 
 void main()
@@ -107,8 +103,8 @@ void main()
 	int quadrant = calculateQuadrant(fullCoords);
 
 	const ivec2 CURRENT_SAMPLES[2] = ivec2[](
-		ivec2(0, 3),
-		ivec2(1, 2)
+		ivec2(3, 0),
+		ivec2(2, 1)
 	);
 	ivec2 currentQuadrants = CURRENT_SAMPLES[currentFrame];
 
@@ -138,17 +134,20 @@ void main()
 		fragColor = vec4(0.0, 0.0, 0.0, 1.0);
 		return;
 	}
-	
-	float z = fetchQuadrant(depth, halfCoords, quadrant).x;
-	ivec2 newHalfCoords = reprojectPixel(halfCoords, z);
 
-	if(!all(equal(halfCoords, newHalfCoords)))
+	// find pixel position in previous frame
+	// for fully general results, we'd sample from a velocity buffer here
+	// for now, reproject pixel to get delta from camera transformation
+	float z = fetchQuadrant(depth, halfCoords, quadrant).x;
+	ivec2 oldCoords = reprojectPixel(fullCoords, z);
+	ivec2 oldHalfCoords = oldCoords >> 1;
+	int oldQuadrant = calculateQuadrant(oldCoords);
+
+	if(!all(equal(fullCoords, oldCoords)))
 	{
-		//fragColor = vec4(1.0, 0.0, 0.0, 1.0);
-		//return;
+		fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		return;
 	}
 
-	//ivec2 newHalfCoords = halfCoords;
-
-    fragColor = fetchQuadrant(color, newHalfCoords, quadrant);
+    fragColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
 }

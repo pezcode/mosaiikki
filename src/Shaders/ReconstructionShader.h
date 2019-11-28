@@ -47,12 +47,11 @@ private:
     Magnum::Int currentFrameUniformLocation;
     Magnum::Int resolutionChangedUniformLocation;
     Magnum::Int viewportUniformLocation;
-    Magnum::Int viewProjectionUniformLocation;
-    Magnum::Int prevInvViewProjectionUniformLocation;
+    Magnum::Int prevViewProjectionUniformLocation;
+    Magnum::Int invViewProjectionUniformLocation;
     Magnum::Int debugShowSamplesUniformLocation;
 
     Magnum::Vector2i viewport;
     bool resolutionChanged;
-    Magnum::Matrix4 viewProjection;
-    Magnum::Matrix4 prevInvViewProjection;
+    Magnum::Matrix4 prevViewProjection;
 };

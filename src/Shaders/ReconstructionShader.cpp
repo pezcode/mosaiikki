@@ -19,13 +19,12 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
     currentFrameUniformLocation(-1),
     resolutionChangedUniformLocation(-1),
     viewportUniformLocation(-1),
-    viewProjectionUniformLocation(-1),
-    prevInvViewProjectionUniformLocation(-1),
+    prevViewProjectionUniformLocation(-1),
+    invViewProjectionUniformLocation(-1),
     debugShowSamplesUniformLocation(-1),
     viewport({ 0, 0 }),
     resolutionChanged(true),
-    viewProjection(Magnum::Math::IdentityInit),
-    prevInvViewProjection(Magnum::Math::IdentityInit)
+    prevViewProjection(Magnum::Math::IdentityInit)
 {
 
 }
@@ -51,8 +50,8 @@ ReconstructionShader::ReconstructionShader() : GL::AbstractShaderProgram()
     currentFrameUniformLocation = uniformLocation("currentFrame");
     resolutionChangedUniformLocation = uniformLocation("resolutionChanged");
     viewportUniformLocation = uniformLocation("viewport");
-    viewProjectionUniformLocation = uniformLocation("viewProjection");
-    prevInvViewProjectionUniformLocation = uniformLocation("prevInvViewProjection");
+    prevViewProjectionUniformLocation = uniformLocation("prevViewProjection");
+    invViewProjectionUniformLocation = uniformLocation("invViewProjection");
     debugShowSamplesUniformLocation = uniformLocation("debugShowSamples");
 
     setResolutionChanged(true);
@@ -82,12 +81,14 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
 {
     resolutionChanged = viewport != camera.viewport();
     viewport = camera.viewport();
-    prevInvViewProjection = viewProjection.inverted();
-    viewProjection = camera.projectionMatrix() * camera.cameraMatrix();
+
+    const Matrix4 viewProjection = camera.projectionMatrix() * camera.cameraMatrix();
 
     setUniform(viewportUniformLocation, viewport);
-    setUniform(viewProjectionUniformLocation, viewProjection);
-    setUniform(prevInvViewProjectionUniformLocation, prevInvViewProjection);
+    setUniform(prevViewProjectionUniformLocation, prevViewProjection);
+    setUniform(invViewProjectionUniformLocation, viewProjection.inverted());
+
+    prevViewProjection = viewProjection;
 
     return *this;
 }
