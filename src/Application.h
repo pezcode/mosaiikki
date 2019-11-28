@@ -52,9 +52,12 @@ private:
     // log
 
     std::fstream logFile;
-    // having one instance of Debug with a custom ostream is enough
-    // to override all Debug instances created later globally
+    // global instances to override the ostream for all instances created later
+    // we need to override each of them separately
+    // don't use these, they're nullptr if the file can't be created
     Corrade::Containers::Pointer<Corrade::Utility::Debug> debug;
+    Corrade::Containers::Pointer<Corrade::Utility::Warning> warning;
+    Corrade::Containers::Pointer<Corrade::Utility::Error> error;
 
     // scene graph
 

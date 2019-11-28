@@ -29,6 +29,8 @@ Application::Application(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
     logFile("calculi.log", std::fstream::out | std::fstream::trunc),
     debug(nullptr),
+    warning(nullptr),
+    error(nullptr),
     meshShader(NoCreate),
     framebuffers {
         GL::Framebuffer(NoCreate),
@@ -42,9 +44,11 @@ Application::Application(const Arguments& arguments) :
     // Log
 
     if(logFile.good())
+    {
         debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
-    else
-        debug = Corrade::Containers::pointer<Utility::Debug>();
+        warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
+        error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
+    }
 
     // Configuration
 
