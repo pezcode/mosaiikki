@@ -1,5 +1,7 @@
 #pragma once
 
+#define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
 
