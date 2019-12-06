@@ -7,12 +7,13 @@ class ImGuiApplication : public Magnum::Platform::Application
 {
 public:
     explicit ImGuiApplication(const Arguments& arguments,
-        const Configuration& configuration = Configuration(),
-        const GLConfiguration& glConfiguration = GLConfiguration());
+                              const Configuration& configuration = Configuration(),
+                              const GLConfiguration& glConfiguration = GLConfiguration());
     explicit ImGuiApplication(const Arguments& arguments, Magnum::NoCreateT);
     ~ImGuiApplication();
 
-    void create(const Configuration& configuration = Configuration(), const GLConfiguration& glConfiguration = GLConfiguration());
+    void create(const Configuration& configuration = Configuration(),
+                const GLConfiguration& glConfiguration = GLConfiguration());
     bool tryCreate(const Configuration& configuration, const GLConfiguration& glConfiguration = GLConfiguration());
 
 protected:

@@ -26,14 +26,10 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
     resolutionChanged(true),
     prevViewProjection(Math::IdentityInit)
 {
-
 }
 
 ReconstructionShader::ReconstructionShader() :
-    GL::AbstractShaderProgram(),
-    viewport({ 0, 0 }),
-    resolutionChanged(true),
-    prevViewProjection(Math::IdentityInit)
+    GL::AbstractShaderProgram(), viewport({ 0, 0 }), resolutionChanged(true), prevViewProjection(Math::IdentityInit)
 {
     triangle = MeshTools::fullScreenTriangle(GLVersion);
 

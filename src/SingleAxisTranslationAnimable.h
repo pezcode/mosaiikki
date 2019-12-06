@@ -8,7 +8,8 @@
 // continually moves an object back and forth along an axis
 // oscillates around the original position with the given velocity, range units in each direction
 // animation happens relative to the current position so you can overlay translations
-template<typename Transform> class SingleAxisTranslationAnimable : public Magnum::SceneGraph::Animable3D
+template<typename Transform>
+class SingleAxisTranslationAnimable : public Magnum::SceneGraph::Animable3D
 {
 public:
     typedef Magnum::SceneGraph::Object<Transform> Object3D;
@@ -16,7 +17,8 @@ public:
     SingleAxisTranslationAnimable(Object3D& object,
                                   const Magnum::Vector3& axis,
                                   float range, // units
-                                  float velocity) : // units per second
+                                  float velocity) :
+        // units per second
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis),
@@ -40,8 +42,14 @@ public:
         setRepeated(true);
     }
 
-    float getRange() const { return range; }
-    void setRange(float newRange) { this->range = newRange; }
+    float getRange() const
+    {
+        return range;
+    }
+    void setRange(float newRange)
+    {
+        this->range = newRange;
+    }
 
 private:
     virtual void animationStopped() override

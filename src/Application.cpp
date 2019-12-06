@@ -37,10 +37,7 @@ Application::Application(const Arguments& arguments) :
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
-    framebuffers {
-        GL::Framebuffer(NoCreate),
-        GL::Framebuffer(NoCreate)
-    },
+    framebuffers { GL::Framebuffer(NoCreate), GL::Framebuffer(NoCreate) },
     colorAttachments(NoCreate),
     depthAttachments(NoCreate),
     currentFrame(0),
@@ -58,8 +55,7 @@ Application::Application(const Arguments& arguments) :
     // Configuration
 
     Configuration conf;
-    conf.setSize({ 800, 600 })
-        .setTitle("calculi");
+    conf.setSize({ 800, 600 }).setTitle("calculi");
 
     GLConfiguration glConf;
     glConf.setVersion(GL::Version::GL320);
@@ -71,9 +67,9 @@ Application::Application(const Arguments& arguments) :
     //setSwapInterval(0); // disable v-sync
 
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
-    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading); // core in 4.0
-    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample); // core in 3.2
-    
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample);      // core in 3.2
+
     // really only supported by Nvidia
     //MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_locations);
 
@@ -91,11 +87,10 @@ Application::Application(const Arguments& arguments) :
     // command line
 
     Utility::Arguments parser;
-    parser
-        .addOption("mesh", "resources/models/Suzanne.glb")
-            .setHelp("mesh", "mesh to load")
+    parser.addOption("mesh", "resources/models/Suzanne.glb")
+        .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
-            .setHelp("font", "font to load")
+        .setHelp("font", "font to load")
         .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
         .setGlobalHelp("Checkered rendering experiment.");
     parser.parse(arguments.argc, arguments.argv);
@@ -109,9 +104,7 @@ Application::Application(const Arguments& arguments) :
 
     lightPos = { -3.0f, 10.0f, 10.0f };
 
-    cameraObject
-        .setParent(&scene)
-        .translate(Vector3::zAxis(-5.0f));
+    cameraObject.setParent(&scene).translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
     (*camera)
         .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
@@ -145,7 +138,8 @@ Application::Application(const Arguments& arguments) :
                 {
                     drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
 
-                    VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(duplicated, velocityShader, drawable->getMesh());
+                    VelocityDrawable3D* velocityDrawable =
+                        new VelocityDrawable3D(duplicated, velocityShader, drawable->getMesh());
                     velocityDrawables.add(*velocityDrawable);
                 }
 
@@ -184,7 +178,8 @@ Application::Application(const Arguments& arguments) :
     colorAttachments.setStorage(2, GL::TextureFormat::RGBA8, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
     colorAttachments.setLabel("Color texture array (half-res 2x MSAA)");
     depthAttachments = GL::MultisampleTexture2DArray();
-    depthAttachments.setStorage(2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
+    depthAttachments.setStorage(
+        2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
     depthAttachments.setLabel("Depth texture array (half-res 2x MSAA)");
 
     for(size_t i = 0; i < FRAMES; i++)
@@ -193,7 +188,7 @@ Application::Application(const Arguments& arguments) :
         framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
         framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
 
-        Containers::Array<char> label = Utility::format( "Framebuffer {} (half-res)", i + 1);
+        Containers::Array<char> label = Utility::format("Framebuffer {} (half-res)", i + 1);
         framebuffers[i].setLabel(label.data());
 
         assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
@@ -218,20 +213,16 @@ Application::Application(const Arguments& arguments) :
     // requires GL 4.5
     // need to update Magnum
 
-    Debug(Debug::Flag::NoSpace)
-        << "MSAA 2x sample positions:" << Debug::newline
-        << "(" << samplePositions[0][0] << ", " << samplePositions[0][1] << ")" << Debug::newline
-        << "(" << samplePositions[1][0] << ", " << samplePositions[1][1] << ")";
+    Debug(Debug::Flag::NoSpace) << "MSAA 2x sample positions:" << Debug::newline << "(" << samplePositions[0][0] << ", "
+                                << samplePositions[0][1] << ")" << Debug::newline << "(" << samplePositions[1][0]
+                                << ", " << samplePositions[1][1] << ")";
 
     // Shaders
 
     velocityShader = VelocityShader();
 
     meshShader = Shaders::Phong();
-    meshShader
-        .setAmbientColor(0x111111_rgbf)
-        .setSpecularColor(0xffffff_rgbf)
-        .setShininess(80.0f);
+    meshShader.setAmbientColor(0x111111_rgbf).setSpecularColor(0xffffff_rgbf).setShininess(80.0f);
     meshShader.setLabel("Phong shader");
 
     reconstructionShader = ReconstructionShader();
@@ -268,7 +259,7 @@ void Application::drawEvent()
 
         // jitter camera if necessary
         Matrix4 projectionMatrix = camera->projectionMatrix();
-        if (currentFrame == JITTERED_FRAME)
+        if(currentFrame == JITTERED_FRAME)
         {
             // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
             // width of NDC divided by pixel count
@@ -303,8 +294,7 @@ void Application::drawEvent()
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
 
-        reconstructionShader
-            .bindColor(colorAttachments)
+        reconstructionShader.bindColor(colorAttachments)
             .bindDepth(depthAttachments)
             .bindVelocity(velocityAttachment)
             .setCurrentFrame(currentFrame)
@@ -316,7 +306,7 @@ void Application::drawEvent()
 
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 2, "imgui");
-        
+
         ImGuiApplication::drawEvent();
     }
 
@@ -338,44 +328,48 @@ void Application::buildUI()
 {
     //ImGui::ShowTestWindow();
 
-    ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-        static bool animatedObjects = false;
-        static bool animatedCamera = false;
-        ImGui::Checkbox("Animated objects", &animatedObjects);
-        ImGui::Checkbox("Animated camera", &animatedCamera);
+    ImGui::Begin(
+        "Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+    static bool animatedObjects = false;
+    static bool animatedCamera = false;
+    ImGui::Checkbox("Animated objects", &animatedObjects);
+    ImGui::Checkbox("Animated camera", &animatedCamera);
 
-        ImGui::Separator();
+    ImGui::Separator();
 
-        static bool debugShowSamples = false;
-        ImGui::Checkbox("Show samples", &debugShowSamples);
-        ImGui::SameLine();
-        float w = ImGui::CalcItemWidth() / 3.0f;
-        ImGui::SetNextItemWidth(w);
-        static int debugSamples = 0;
-        const char* const debugSamplesOptions[] = { "Even", "Odd" };
-        ImGui::Combo("", &debugSamples, debugSamplesOptions, Containers::arraySize(debugSamplesOptions));
+    static bool debugShowSamples = false;
+    ImGui::Checkbox("Show samples", &debugShowSamples);
+    ImGui::SameLine();
+    float w = ImGui::CalcItemWidth() / 3.0f;
+    ImGui::SetNextItemWidth(w);
+    static int debugSamples = 0;
+    const char* const debugSamplesOptions[] = { "Even", "Odd" };
+    ImGui::Combo("", &debugSamples, debugSamplesOptions, Containers::arraySize(debugSamplesOptions));
 
-        static bool debugShowVelocity = false;
-        ImGui::Checkbox("Show velocity", &debugShowVelocity);
+    static bool debugShowVelocity = false;
+    ImGui::Checkbox("Show velocity", &debugShowVelocity);
 
-        const ImVec2 margin = { 5, 5 };
-        ImVec2 size = ImGui::GetWindowSize();
-        ImVec2 screen = ImGui::GetIO().DisplaySize;
-        ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
-        ImGui::SetWindowPos(pos);
+    const ImVec2 margin = { 5, 5 };
+    ImVec2 size = ImGui::GetWindowSize();
+    ImVec2 screen = ImGui::GetIO().DisplaySize;
+    ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
+    ImGui::SetWindowPos(pos);
     ImGui::End();
 
-    reconstructionShader.setDebugShowSamples(debugShowSamples ? (ReconstructionShader::DebugSamples)(debugSamples + 1) : ReconstructionShader::DebugSamples::Disabled);
+    reconstructionShader.setDebugShowSamples(debugShowSamples ? (ReconstructionShader::DebugSamples)(debugSamples + 1)
+                                                              : ReconstructionShader::DebugSamples::Disabled);
     reconstructionShader.setDebugShowVelocity(debugShowVelocity);
 
     for(size_t i = 0; i < meshAnimables.size(); i++)
     {
-        meshAnimables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
+        meshAnimables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running
+                                                  : SceneGraph::AnimationState::Paused);
     }
 
     // TODO rotation instead of translation animation
     if(cameraAnimables.size() > 0)
-        cameraAnimables[0].setState(animatedCamera ? SceneGraph::AnimationState::Running : SceneGraph::AnimationState::Paused);
+        cameraAnimables[0].setState(animatedCamera ? SceneGraph::AnimationState::Running
+                                                   : SceneGraph::AnimationState::Paused);
 }
 
 bool Application::loadScene(const char* file, Object3D& parent)
@@ -410,7 +404,8 @@ bool Application::loadScene(const char* file, Object3D& parent)
     for(UnsignedInt i = 0; i < importer->mesh3DCount(); i++)
     {
         Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(i);
-        if(meshData && meshData->hasNormals() && GL::meshPrimitive(meshData->primitive()) == GL::MeshPrimitive::Triangles)
+        if(meshData && meshData->hasNormals() &&
+           GL::meshPrimitive(meshData->primitive()) == GL::MeshPrimitive::Triangles)
         {
             meshes[i] = MeshTools::compile(*meshData);
         }
@@ -437,9 +432,11 @@ void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objec
         Object3D& object = parent.addChild<Object3D>();
         object.setTransformation(objectData->transformation());
 
-        if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 && meshes[objectData->instance()])
+        if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
+           meshes[objectData->instance()])
         {
-            SceneGraph::Drawable3D* drawable = new Drawable3D(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
+            SceneGraph::Drawable3D* drawable =
+                new Drawable3D(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
             drawables.add(*drawable);
         }
 

@@ -7,11 +7,8 @@
 using namespace Magnum;
 
 VelocityShader::VelocityShader(NoCreateT) :
-    GL::AbstractShaderProgram(NoCreate),
-    oldModelViewProjectionUniform(-1),
-    modelViewProjectionUniform(-1)
+    GL::AbstractShaderProgram(NoCreate), oldModelViewProjectionUniform(-1), modelViewProjectionUniform(-1)
 {
-
 }
 
 VelocityShader::VelocityShader() : GL::AbstractShaderProgram()

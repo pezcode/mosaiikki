@@ -5,31 +5,29 @@
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/SceneGraph/Camera.h>
 
-template<typename Transform> class VelocityDrawable : public Magnum::SceneGraph::Drawable3D
+template<typename Transform>
+class VelocityDrawable : public Magnum::SceneGraph::Drawable3D
 {
 public:
     typedef Magnum::SceneGraph::Object<Transform> Object3D;
 
-    explicit VelocityDrawable(Object3D& object,
-                              VelocityShader& shader,
-                              Magnum::GL::Mesh& mesh) :
+    explicit VelocityDrawable(Object3D& object, VelocityShader& shader, Magnum::GL::Mesh& mesh) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(shader),
         mesh(mesh),
         oldModelViewProjection(Magnum::Math::IdentityInit)
     {
-
     }
 
     VelocityDrawable(const VelocityDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object),
-        shader(other.shader),
-        mesh(other.mesh)
+        Magnum::SceneGraph::Drawable3D(object), shader(other.shader), mesh(other.mesh)
     {
-
     }
 
-    Magnum::GL::Mesh& getMesh() const { return mesh; }
+    Magnum::GL::Mesh& getMesh() const
+    {
+        return mesh;
+    }
 
 private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override

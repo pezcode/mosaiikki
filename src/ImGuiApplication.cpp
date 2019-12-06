@@ -6,8 +6,8 @@
 using namespace Magnum;
 
 ImGuiApplication::ImGuiApplication(const Arguments& arguments,
-    const Configuration& configuration,
-    const GLConfiguration& glConfiguration) :
+                                   const Configuration& configuration,
+                                   const GLConfiguration& glConfiguration) :
     Magnum::Platform::Application(arguments, configuration, glConfiguration)
 {
     init();
@@ -16,7 +16,6 @@ ImGuiApplication::ImGuiApplication(const Arguments& arguments,
 ImGuiApplication::ImGuiApplication(const Arguments& arguments, NoCreateT) :
     Magnum::Platform::Application(arguments, NoCreate)
 {
-
 }
 
 ImGuiApplication::~ImGuiApplication()
@@ -72,7 +71,8 @@ void ImGuiApplication::drawEvent()
     // alpha blending, scissor, no culling, no depth test
 
     GL::Renderer::setBlendEquation(GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add);
-    GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha);
+    GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
+                                   GL::Renderer::BlendFunction::OneMinusSourceAlpha);
 
     GL::Renderer::enable(GL::Renderer::Feature::Blending);
     GL::Renderer::enable(GL::Renderer::Feature::ScissorTest);
@@ -148,8 +148,7 @@ void ImGuiApplication::setFont(const char* fontFile, float pixels)
     io.Fonts->Clear();
     ImFontConfig fontConfig;
     fontConfig.GlyphRanges = io.Fonts->GetGlyphRangesDefault();
-    io.Fonts->AddFontFromFileTTF(fontFile,
-        pixels * framebufferSize().x() / uiSize().x(), &fontConfig);
+    io.Fonts->AddFontFromFileTTF(fontFile, pixels * framebufferSize().x() / uiSize().x(), &fontConfig);
     // update font atlas
     imgui.relayout(uiSize(), windowSize(), framebufferSize());
 }

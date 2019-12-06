@@ -26,9 +26,13 @@
 #include <Corrade/Containers/Optional.h>
 #include <fstream>
 
-namespace Magnum { namespace Trade {
-    class AbstractImporter;
-}}
+namespace Magnum
+{
+namespace Trade
+{
+class AbstractImporter;
+}
+} // namespace Magnum
 
 class Application : public ImGuiApplication
 {
@@ -100,6 +104,6 @@ private:
     Magnum::GL::MultisampleTexture2DArray depthAttachments;
 
     size_t currentFrame;
-    
+
     ReconstructionShader reconstructionShader;
 };
