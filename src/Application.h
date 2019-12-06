@@ -1,9 +1,10 @@
 #pragma once
 
 #include "ImGuiApplication.h"
-#include "Feature.h"
+#include "VelocityDrawable.h"
 #include "ColoredDrawable.h"
 #include "SingleAxisTranslationAnimable.h"
+#include "Shaders/VelocityShader.h"
 #include "Shaders/ReconstructionShader.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.h>
@@ -38,8 +39,9 @@ private:
     typedef Magnum::SceneGraph::MatrixTransformation3D Transform3D;
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
-    typedef ColoredDrawable<Transform3D> Drawable;
-    typedef SingleAxisTranslationAnimable<Transform3D> Animable;
+    typedef VelocityDrawable<Transform3D> VelocityDrawable3D;
+    typedef ColoredDrawable<Transform3D> Drawable3D;
+    typedef SingleAxisTranslationAnimable<Transform3D> Animable3D;
 
     virtual void drawEvent() override;
     virtual void viewportEvent(ViewportEvent& event) override;
@@ -67,7 +69,9 @@ private:
     Object3D manipulator, cameraObject;
     Corrade::Containers::Pointer<Magnum::SceneGraph::Camera3D> camera;
     Magnum::SceneGraph::DrawableGroup3D drawables;
+    Magnum::SceneGraph::DrawableGroup3D velocityDrawables; // moving objects that contribute to the velocity buffer
 
+    VelocityShader velocityShader;
     Magnum::Shaders::Phong meshShader;
 
     // scene
@@ -79,6 +83,10 @@ private:
     const size_t objectGridSize = 6;
 
     // checkerboard rendering
+
+    Magnum::GL::Framebuffer velocityFramebuffer;
+    Magnum::GL::Texture2D velocityAttachment;
+    Magnum::GL::Texture2D velocityDepthAttachment;
 
     static constexpr size_t FRAMES = 2;
     static constexpr size_t JITTERED_FRAME = 1;
@@ -92,6 +100,6 @@ private:
     Magnum::GL::MultisampleTexture2DArray depthAttachments;
 
     size_t currentFrame;
-
+    
     ReconstructionShader reconstructionShader;
 };

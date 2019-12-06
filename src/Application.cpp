@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "Feature.h"
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Context.h>
@@ -31,7 +32,11 @@ Application::Application(const Arguments& arguments) :
     debug(nullptr),
     warning(nullptr),
     error(nullptr),
+    velocityShader(NoCreate),
     meshShader(NoCreate),
+    velocityFramebuffer(NoCreate),
+    velocityAttachment(NoCreate),
+    velocityDepthAttachment(NoCreate),
     framebuffers {
         GL::Framebuffer(NoCreate),
         GL::Framebuffer(NoCreate)
@@ -53,11 +58,9 @@ Application::Application(const Arguments& arguments) :
     // Configuration
 
     Configuration conf;
-    conf
-#ifndef CORRADE_TARGET_EMSCRIPTEN
-        .setSize({ 800, 600 })
-#endif
+    conf.setSize({ 800, 600 })
         .setTitle("calculi");
+
     GLConfiguration glConf;
     glConf.setVersion(GL::Version::GL320);
 #ifdef CORRADE_IS_DEBUG_BUILD
@@ -67,9 +70,10 @@ Application::Application(const Arguments& arguments) :
 
     //setSwapInterval(0); // disable v-sync
 
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading); // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample); // core in 3.2
-    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
+    
     // really only supported by Nvidia
     //MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_locations);
 
@@ -114,7 +118,7 @@ Application::Application(const Arguments& arguments) :
         .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.5f, 50.0f))
         .setViewport(framebufferSize());
 
-    SceneGraph::Animable3D* animable = new Animable(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
+    SceneGraph::Animable3D* animable = new Animable3D(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
     cameraAnimables.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
@@ -137,19 +141,22 @@ Application::Application(const Arguments& arguments) :
                 Object3D& duplicated = duplicateObject(original, *original.parent());
                 duplicated.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
 
-                for(Drawable* drawable : featuresInChildren<Drawable>(duplicated))
+                for(Drawable3D* drawable : featuresInChildren<Drawable3D>(duplicated))
                 {
                     drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+
+                    VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(duplicated, velocityShader, drawable->getMesh());
+                    velocityDrawables.add(*velocityDrawable);
                 }
 
-                SceneGraph::Animable3D* duplicatedAnimable = new Animable(duplicated, Vector3::xAxis(), 3.0f, 1.5f);
+                SceneGraph::Animable3D* duplicatedAnimable = new Animable3D(duplicated, Vector3::xAxis(), 3.0f, 5.5f);
                 meshAnimables.add(*duplicatedAnimable);
                 duplicatedAnimable->setState(SceneGraph::AnimationState::Running);
             }
         }
     }
 
-    for(Drawable* drawable : featuresInChildren<Drawable>(original))
+    for(Drawable3D* drawable : featuresInChildren<Drawable3D>(original))
     {
         drawables.remove(*drawable);
     }
@@ -158,6 +165,17 @@ Application::Application(const Arguments& arguments) :
 
     const Vector2i size = framebufferSize();
     assert(size % 2 == Vector2i(0, 0));
+
+    velocityAttachment = GL::Texture2D();
+    velocityAttachment.setStorage(1, GL::TextureFormat::RG16F, size);
+    velocityAttachment.setLabel("Velocity texture");
+    velocityDepthAttachment = GL::Texture2D();
+    velocityDepthAttachment.setStorage(1, GL::TextureFormat::DepthComponent32, size);
+    velocityDepthAttachment.setLabel("Velocity depth texture");
+
+    velocityFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
+    velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0);
+    velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0);
 
     Vector2i halfSize = size / 2;
     Vector3i arraySize = { halfSize, FRAMES };
@@ -207,6 +225,8 @@ Application::Application(const Arguments& arguments) :
 
     // Shaders
 
+    velocityShader = VelocityShader();
+
     meshShader = Shaders::Phong();
     meshShader
         .setAmbientColor(0x111111_rgbf)
@@ -226,18 +246,19 @@ void Application::drawEvent()
     meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
     cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
-    GL::Framebuffer& framebuffer = framebuffers[currentFrame];
+    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
 
-    // jitter camera if necessary
+    // fill velocity buffer
 
-    Matrix4 projectionMatrix = camera->projectionMatrix();
-    if(currentFrame == JITTERED_FRAME)
     {
-        // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
-        // width of NDC divided by pixel count
-        const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
-        Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
-        camera->setProjectionMatrix(jitteredMatrix);
+        GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Velocity buffer");
+
+        velocityFramebuffer.bind();
+        velocityFramebuffer.clearColor(0, 0_rgbf);
+        velocityFramebuffer.clearDepth(1.0f);
+
+        camera->draw(velocityDrawables);
     }
 
     // render scene at half resolution
@@ -245,13 +266,22 @@ void Application::drawEvent()
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (half-res)");
 
+        // jitter camera if necessary
+        Matrix4 projectionMatrix = camera->projectionMatrix();
+        if (currentFrame == JITTERED_FRAME)
+        {
+            // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
+            // width of NDC divided by pixel count
+            const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
+            Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
+            camera->setProjectionMatrix(jitteredMatrix);
+        }
+
+        GL::Framebuffer& framebuffer = framebuffers[currentFrame];
         framebuffer.bind();
         const Color3 clearColor = 0x111111_rgbf;
         framebuffer.clearColor(0, clearColor);
         framebuffer.clearDepth(1.0f);
-
-        GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
-        GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
 
         // run fragment shader for each sample
         GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
@@ -261,22 +291,22 @@ void Application::drawEvent()
 
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
         GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+
+        // undo jitter
+        camera->setProjectionMatrix(projectionMatrix);
     }
 
-    // undo jitter
-
-    camera->setProjectionMatrix(projectionMatrix);
+    GL::defaultFramebuffer.bind();
 
     // combine framebuffers
 
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
 
-        GL::defaultFramebuffer.bind();
-
         reconstructionShader
             .bindColor(colorAttachments)
             .bindDepth(depthAttachments)
+            .bindVelocity(velocityAttachment)
             .setCurrentFrame(currentFrame)
             .setCameraInfo(*camera)
             .draw();
@@ -316,11 +346,17 @@ void Application::buildUI()
 
         ImGui::Separator();
 
+        static bool debugShowSamples = false;
+        ImGui::Checkbox("Show samples", &debugShowSamples);
+        ImGui::SameLine();
         float w = ImGui::CalcItemWidth() / 3.0f;
         ImGui::SetNextItemWidth(w);
-        static int debugSamples = (int)ReconstructionShader::DebugSamples::Disabled;
-        const char* const debugSamplesOptions[] = { "Disabled", "Even", "Odd" };
-        ImGui::Combo("Show samples", &debugSamples, debugSamplesOptions, 3);
+        static int debugSamples = 0;
+        const char* const debugSamplesOptions[] = { "Even", "Odd" };
+        ImGui::Combo("", &debugSamples, debugSamplesOptions, Containers::arraySize(debugSamplesOptions));
+
+        static bool debugShowVelocity = false;
+        ImGui::Checkbox("Show velocity", &debugShowVelocity);
 
         const ImVec2 margin = { 5, 5 };
         ImVec2 size = ImGui::GetWindowSize();
@@ -329,7 +365,8 @@ void Application::buildUI()
         ImGui::SetWindowPos(pos);
     ImGui::End();
 
-    reconstructionShader.setDebugShowSamples((ReconstructionShader::DebugSamples)debugSamples);
+    reconstructionShader.setDebugShowSamples(debugShowSamples ? (ReconstructionShader::DebugSamples)(debugSamples + 1) : ReconstructionShader::DebugSamples::Disabled);
+    reconstructionShader.setDebugShowVelocity(debugShowVelocity);
 
     for(size_t i = 0; i < meshAnimables.size(); i++)
     {
@@ -402,7 +439,7 @@ void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objec
 
         if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 && meshes[objectData->instance()])
         {
-            SceneGraph::Drawable3D* drawable = new Drawable(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
+            SceneGraph::Drawable3D* drawable = new Drawable3D(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
             drawables.add(*drawable);
         }
 
@@ -420,10 +457,10 @@ Application::Object3D& Application::duplicateObject(Object3D& object, Object3D& 
     Object3D& duplicate = parent.addChild<Object3D>();
     duplicate.setTransformation(object.transformation());
 
-    Drawable* drawable = feature<Drawable>(object);
+    Drawable3D* drawable = feature<Drawable3D>(object);
     if(drawable)
     {
-        Drawable* newDrawable = new Drawable(*drawable, duplicate);
+        Drawable3D* newDrawable = new Drawable3D(*drawable, duplicate);
         drawables.add(*newDrawable);
     }
 

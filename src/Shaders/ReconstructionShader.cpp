@@ -2,34 +2,38 @@
 
 #include <Magnum/GL/Shader.h>
 #include <Magnum/GL/MultisampleTexture.h>
+#include <Magnum/GL/Texture.h>
 #include <Magnum/MeshTools/FullScreenTriangle.h>
-#include <Magnum/SceneGraph/Camera.h>
 #include <Corrade/Containers/Reference.h>
 #include <Corrade/Utility/Resource.h>
-#include <algorithm>
-#include <cassert>
 
 using namespace Magnum;
 
 ReconstructionShader::ReconstructionShader(NoCreateT) :
     GL::AbstractShaderProgram(NoCreate),
     triangle(NoCreate),
-    colorSamplerLocation(-1),
-    depthSamplerLocation(-1),
-    currentFrameUniformLocation(-1),
-    resolutionChangedUniformLocation(-1),
-    viewportUniformLocation(-1),
-    prevViewProjectionUniformLocation(-1),
-    invViewProjectionUniformLocation(-1),
-    debugShowSamplesUniformLocation(-1),
+    colorSampler(-1),
+    depthSampler(-1),
+    velocitySampler(-1),
+    currentFrameUniform(-1),
+    resolutionChangedUniform(-1),
+    viewportUniform(-1),
+    prevViewProjectionUniform(-1),
+    invViewProjectionUniform(-1),
+    debugShowSamplesUniform(-1),
+    debugShowVelocityUniform(-1),
     viewport({ 0, 0 }),
     resolutionChanged(true),
-    prevViewProjection(Magnum::Math::IdentityInit)
+    prevViewProjection(Math::IdentityInit)
 {
 
 }
 
-ReconstructionShader::ReconstructionShader() : GL::AbstractShaderProgram()
+ReconstructionShader::ReconstructionShader() :
+    GL::AbstractShaderProgram(),
+    viewport({ 0, 0 }),
+    resolutionChanged(true),
+    prevViewProjection(Math::IdentityInit)
 {
     triangle = MeshTools::fullScreenTriangle(GLVersion);
 
@@ -45,35 +49,42 @@ ReconstructionShader::ReconstructionShader() : GL::AbstractShaderProgram()
     attachShaders({ vert, frag });
     link();
 
-    colorSamplerLocation = uniformLocation("color");
-    depthSamplerLocation = uniformLocation("depth");
-    currentFrameUniformLocation = uniformLocation("currentFrame");
-    resolutionChangedUniformLocation = uniformLocation("resolutionChanged");
-    viewportUniformLocation = uniformLocation("viewport");
-    prevViewProjectionUniformLocation = uniformLocation("prevViewProjection");
-    invViewProjectionUniformLocation = uniformLocation("invViewProjection");
-    debugShowSamplesUniformLocation = uniformLocation("debugShowSamples");
-
-    setResolutionChanged(true);
+    colorSampler = uniformLocation("color");
+    depthSampler = uniformLocation("depth");
+    velocitySampler = uniformLocation("velocity");
+    currentFrameUniform = uniformLocation("currentFrame");
+    resolutionChangedUniform = uniformLocation("resolutionChanged");
+    viewportUniform = uniformLocation("viewport");
+    prevViewProjectionUniform = uniformLocation("prevViewProjection");
+    invViewProjectionUniform = uniformLocation("invViewProjection");
+    debugShowSamplesUniform = uniformLocation("debugShowSamples");
+    debugShowVelocityUniform = uniformLocation("debugShowVelocity");
 }
 
 ReconstructionShader& ReconstructionShader::bindColor(GL::MultisampleTexture2DArray& attachment)
 {
-    setUniform(colorSamplerLocation, TextureUnits::Color);
+    setUniform(colorSampler, TextureUnits::Color);
     attachment.bind(TextureUnits::Color);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::bindDepth(GL::MultisampleTexture2DArray& attachment)
 {
-    setUniform(depthSamplerLocation, TextureUnits::Depth);
+    setUniform(depthSampler, TextureUnits::Depth);
     attachment.bind(TextureUnits::Depth);
+    return *this;
+}
+
+ReconstructionShader& ReconstructionShader::bindVelocity(GL::Texture2D& attachment)
+{
+    setUniform(velocitySampler, TextureUnits::Velocity);
+    attachment.bind(TextureUnits::Velocity);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::setCurrentFrame(Int currentFrame)
 {
-    setUniform(currentFrameUniformLocation, currentFrame);
+    setUniform(currentFrameUniform, currentFrame);
     return *this;
 }
 
@@ -81,12 +92,11 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
 {
     resolutionChanged = viewport != camera.viewport();
     viewport = camera.viewport();
-
     const Matrix4 viewProjection = camera.projectionMatrix() * camera.cameraMatrix();
 
-    setUniform(viewportUniformLocation, viewport);
-    setUniform(prevViewProjectionUniformLocation, prevViewProjection);
-    setUniform(invViewProjectionUniformLocation, viewProjection.inverted());
+    setUniform(viewportUniform, viewport);
+    setUniform(prevViewProjectionUniform, prevViewProjection);
+    setUniform(invViewProjectionUniform, viewProjection.inverted());
 
     prevViewProjection = viewProjection;
 
@@ -95,13 +105,19 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
 
 ReconstructionShader& ReconstructionShader::setDebugShowSamples(DebugSamples samples)
 {
-    setUniform(debugShowSamplesUniformLocation, samples);
+    setUniform(debugShowSamplesUniform, samples);
+    return *this;
+}
+
+ReconstructionShader& ReconstructionShader::setDebugShowVelocity(bool show)
+{
+    setUniform(debugShowVelocityUniform, show);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::setResolutionChanged(bool changed)
 {
-    setUniform(resolutionChangedUniformLocation, changed);
+    setUniform(resolutionChangedUniform, changed);
     return *this;
 }
 

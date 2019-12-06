@@ -20,10 +20,12 @@ public:
 
     ReconstructionShader& bindColor(Magnum::GL::MultisampleTexture2DArray& attachment);
     ReconstructionShader& bindDepth(Magnum::GL::MultisampleTexture2DArray& attachment);
+    ReconstructionShader& bindVelocity(Magnum::GL::Texture2D& attachment);
     ReconstructionShader& setCurrentFrame(Magnum::Int currentFrame);
     // camera should be const, but camera.cameraMatrix() is not :(
     ReconstructionShader& setCameraInfo(Magnum::SceneGraph::Camera3D& camera);
     ReconstructionShader& setDebugShowSamples(DebugSamples samples);
+    ReconstructionShader& setDebugShowVelocity(bool show);
 
     // normally you call mesh.draw(shader)
     // but we supply our own mesh for a fullscreen pass
@@ -39,17 +41,20 @@ private:
     enum TextureUnits : Magnum::Int
     {
         Color = 0,
-        Depth
+        Depth,
+        Velocity
     };
 
-    Magnum::Int colorSamplerLocation;
-    Magnum::Int depthSamplerLocation;
-    Magnum::Int currentFrameUniformLocation;
-    Magnum::Int resolutionChangedUniformLocation;
-    Magnum::Int viewportUniformLocation;
-    Magnum::Int prevViewProjectionUniformLocation;
-    Magnum::Int invViewProjectionUniformLocation;
-    Magnum::Int debugShowSamplesUniformLocation;
+    Magnum::Int colorSampler;
+    Magnum::Int depthSampler;
+    Magnum::Int velocitySampler;
+    Magnum::Int currentFrameUniform;
+    Magnum::Int resolutionChangedUniform;
+    Magnum::Int viewportUniform;
+    Magnum::Int prevViewProjectionUniform;
+    Magnum::Int invViewProjectionUniform;
+    Magnum::Int debugShowSamplesUniform;
+    Magnum::Int debugShowVelocityUniform;
 
     Magnum::Vector2i viewport;
     bool resolutionChanged;

@@ -35,6 +35,8 @@ public:
 
     }
 
+    Magnum::GL::Mesh& getMesh() const { return mesh; }
+
     Magnum::Color4 getColor() const { return color; }
     void setColor(const Magnum::Color4& newColor) { this->color = newColor; }
 

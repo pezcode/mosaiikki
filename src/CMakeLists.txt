@@ -5,12 +5,17 @@ set(SOURCES
 	ImGuiApplication.h
 	ImGuiApplication.cpp
 	Feature.h
+	VelocityDrawable.h
 	ColoredDrawable.h
 	SingleAxisTranslationAnimable.h
 	Shaders/ReconstructionShader.h
 	Shaders/ReconstructionShader.cpp
 	Shaders/ReconstructionShader.vert
 	Shaders/ReconstructionShader.frag
+	Shaders/VelocityShader.h
+	Shaders/VelocityShader.cpp
+	Shaders/VelocityShader.vert
+	Shaders/VelocityShader.frag
 )
 
 if(MSVC)
