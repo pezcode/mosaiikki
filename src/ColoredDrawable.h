@@ -53,7 +53,7 @@ private:
             .setNormalMatrix(transformationMatrix.normalMatrix())
             .setProjectionMatrix(camera.projectionMatrix());
 
-        mesh.draw(shader);
+        shader.draw(mesh);
     }
 
     Magnum::Shaders::Phong& shader;

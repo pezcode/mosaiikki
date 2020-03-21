@@ -37,7 +37,7 @@ private:
         shader.setModelViewProjection(modelViewProjection);
         oldModelViewProjection = modelViewProjection;
 
-        mesh.draw(shader);
+        shader.draw(mesh);
     }
 
     VelocityShader& shader;

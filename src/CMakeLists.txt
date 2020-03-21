@@ -29,7 +29,7 @@ set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
 find_package(Corrade REQUIRED Main Utility)
 find_package(Magnum REQUIRED
-	Sdl2Application
+	GlfwApplication
 	GL
 	SceneGraph
 	Shaders

@@ -1,7 +1,6 @@
 #include "Application.h"
 
 #include "Feature.h"
-#include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Context.h>
 #include <Magnum/GL/Extensions.h>
@@ -11,7 +10,7 @@
 #include <Magnum/GL/RenderbufferFormat.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/Trade/AbstractImporter.h>
-#include <Magnum/Trade/MeshData3D.h>
+#include <Magnum/Trade/MeshData.h>
 #include <Magnum/Trade/MeshObjectData3D.h>
 #include <Magnum/Trade/SceneData.h>
 #include <Magnum/MeshTools/Compile.h>
@@ -321,7 +320,10 @@ void Application::drawEvent()
 
 void Application::viewportEvent(ViewportEvent& event)
 {
+    // TODO
+    // resize framebuffers
     camera->setViewport(event.framebufferSize());
+    ImGuiApplication::viewportEvent(event);
 }
 
 void Application::buildUI()
@@ -400,14 +402,15 @@ bool Application::loadScene(const char* file, Object3D& parent)
 
     // extract and compile meshes
 
-    meshes = Containers::Array<Containers::Optional<GL::Mesh>>(importer->mesh3DCount());
-    for(UnsignedInt i = 0; i < importer->mesh3DCount(); i++)
+    meshes = Containers::Array<Containers::Optional<GL::Mesh>>(importer->meshCount());
+    for(UnsignedInt i = 0; i < importer->meshCount(); i++)
     {
-        Containers::Optional<Trade::MeshData3D> meshData = importer->mesh3D(i);
-        if(meshData && meshData->hasNormals() &&
-           GL::meshPrimitive(meshData->primitive()) == GL::MeshPrimitive::Triangles)
+        Containers::Optional<Trade::MeshData> data = importer->mesh(i);
+        if(data && data->hasAttribute(Trade::MeshAttribute::Position) &&
+           data->hasAttribute(Trade::MeshAttribute::Normal) &&
+           GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
         {
-            meshes[i] = MeshTools::compile(*meshData);
+            meshes[i] = MeshTools::compile(*data);
         }
     }
 

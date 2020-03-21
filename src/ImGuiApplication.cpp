@@ -8,13 +8,13 @@ using namespace Magnum;
 ImGuiApplication::ImGuiApplication(const Arguments& arguments,
                                    const Configuration& configuration,
                                    const GLConfiguration& glConfiguration) :
-    Magnum::Platform::Application(arguments, configuration, glConfiguration)
+    Magnum::Platform::Application(arguments, configuration, glConfiguration), imgui(Magnum::NoCreate)
 {
     init();
 }
 
 ImGuiApplication::ImGuiApplication(const Arguments& arguments, NoCreateT) :
-    Magnum::Platform::Application(arguments, NoCreate)
+    Magnum::Platform::Application(arguments, NoCreate), imgui(Magnum::NoCreate)
 {
 }
 

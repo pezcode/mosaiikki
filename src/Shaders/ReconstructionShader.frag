@@ -234,5 +234,7 @@ void main()
 	}
 
 	// previous pixel position is not in old frame quadrants, use current average
-	fragColor = fetchColorAverage(halfCoords, quadrant);
+	//fragColor = fetchColorAverage(halfCoords, quadrant);
+
+	fragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

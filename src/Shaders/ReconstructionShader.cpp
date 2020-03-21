@@ -36,6 +36,12 @@ ReconstructionShader::ReconstructionShader() :
     GL::Shader vert(GLVersion, GL::Shader::Type::Vertex);
     GL::Shader frag(GLVersion, GL::Shader::Type::Fragment);
 
+    // TODO
+    // use Resource::overrideGroup to load resources from files if they exist
+    // together with FileWatcher this will allow shader hot-reloading
+    // https://doc.magnum.graphics/corrade/classCorrade_1_1Utility_1_1Resource.html#a06013f7ed2126fc3f81bcfde849faf69
+    // https://doc.magnum.graphics/corrade/classCorrade_1_1Utility_1_1FileWatcher.html
+
     Utility::Resource rs("shaders");
     vert.addSource(rs.get("ReconstructionShader.vert"));
     frag.addSource(rs.get("ReconstructionShader.frag"));
@@ -120,5 +126,5 @@ ReconstructionShader& ReconstructionShader::setResolutionChanged(bool changed)
 void ReconstructionShader::draw()
 {
     setResolutionChanged(resolutionChanged);
-    triangle.draw(*this);
+    AbstractShaderProgram::draw(triangle);
 }

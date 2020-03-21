@@ -2,7 +2,7 @@
 
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 
-#include <Magnum/Platform/Sdl2Application.h>
+#include <Magnum/Platform/GlfwApplication.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
 
 class ImGuiApplication : public Magnum::Platform::Application
@@ -48,5 +48,5 @@ protected:
 private:
     void init();
 
-    Magnum::ImGuiIntegration::Context imgui { Magnum::NoCreate };
+    Magnum::ImGuiIntegration::Context imgui;
 };

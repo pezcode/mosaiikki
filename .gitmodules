@@ -7,12 +7,13 @@
 [submodule "3rdparty/magnum-plugins"]
 	path = 3rdparty/magnum-plugins
 	url = https://github.com/mosra/magnum-plugins.git
-[submodule "3rdparty/ucm"]
-	path = 3rdparty/ucm
-	url = https://github.com/onqtam/ucm.git
 [submodule "3rdparty/magnum-integration"]
 	path = 3rdparty/magnum-integration
 	url = https://github.com/mosra/magnum-integration.git
 [submodule "3rdparty/imgui"]
 	path = 3rdparty/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "3rdparty/glfw"]
+	path = 3rdparty/glfw
+	url = https://github.com/glfw/glfw.git
+	branch = master
