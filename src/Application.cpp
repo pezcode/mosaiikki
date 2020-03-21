@@ -28,9 +28,9 @@ using namespace Feature;
 Application::Application(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
     logFile("calculi.log", std::fstream::out | std::fstream::trunc),
-    debug(nullptr),
-    warning(nullptr),
-    error(nullptr),
+    _debug(nullptr),
+    _warning(nullptr),
+    _error(nullptr),
     velocityShader(NoCreate),
     meshShader(NoCreate),
     velocityFramebuffer(NoCreate),
@@ -46,15 +46,17 @@ Application::Application(const Arguments& arguments) :
 
     if(logFile.good())
     {
-        debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
-        warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
-        error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
+        _debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
+        _warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
+        _error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
     }
 
     // Configuration
 
     Configuration conf;
-    conf.setSize({ 800, 600 }).setTitle("calculi");
+    conf.setSize({ 800, 600 });
+    conf.setTitle("calculi");
+    conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
     GLConfiguration glConf;
     glConf.setVersion(GL::Version::GL320);
@@ -156,43 +158,7 @@ Application::Application(const Arguments& arguments) :
 
     // Framebuffers
 
-    const Vector2i size = framebufferSize();
-    assert(size % 2 == Vector2i(0, 0));
-
-    velocityAttachment = GL::Texture2D();
-    velocityAttachment.setStorage(1, GL::TextureFormat::RG16F, size);
-    velocityAttachment.setLabel("Velocity texture");
-    velocityDepthAttachment = GL::Texture2D();
-    velocityDepthAttachment.setStorage(1, GL::TextureFormat::DepthComponent32, size);
-    velocityDepthAttachment.setLabel("Velocity depth texture");
-
-    velocityFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
-    velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0);
-    velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0);
-
-    Vector2i halfSize = size / 2;
-    Vector3i arraySize = { halfSize, FRAMES };
-
-    colorAttachments = GL::MultisampleTexture2DArray();
-    colorAttachments.setStorage(2, GL::TextureFormat::RGBA8, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
-    colorAttachments.setLabel("Color texture array (half-res 2x MSAA)");
-    depthAttachments = GL::MultisampleTexture2DArray();
-    depthAttachments.setStorage(
-        2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
-    depthAttachments.setLabel("Depth texture array (half-res 2x MSAA)");
-
-    for(size_t i = 0; i < FRAMES; i++)
-    {
-        framebuffers[i] = GL::Framebuffer({ { 0, 0 }, halfSize });
-        framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
-        framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
-
-        Containers::Array<char> label = Utility::format("Framebuffer {} (half-res)", i + 1);
-        framebuffers[i].setLabel(label.data());
-
-        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
-        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
-    }
+    resizeFramebuffers(framebufferSize());
 
     GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
     GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
@@ -229,6 +195,50 @@ Application::Application(const Arguments& arguments) :
     reconstructionShader.setLabel("Checkerboard resolve shader");
 
     timeline.start();
+}
+
+void Application::resizeFramebuffers(Magnum::Vector2i size)
+{
+    // make texture dimensions multiple of two
+    size += size % 2;
+
+    velocityAttachment = GL::Texture2D();
+    velocityAttachment.setStorage(1, GL::TextureFormat::RG16F, size);
+    velocityAttachment.setLabel("Velocity texture");
+    velocityDepthAttachment = GL::Texture2D();
+    velocityDepthAttachment.setStorage(1, GL::TextureFormat::DepthComponent32, size);
+    velocityDepthAttachment.setLabel("Velocity depth texture");
+
+    velocityFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
+    velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0);
+    velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0);
+
+    assert(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
+    assert(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
+
+    Vector2i halfSize = size / 2;
+    Vector3i arraySize = { halfSize, FRAMES };
+
+    colorAttachments = GL::MultisampleTexture2DArray();
+    colorAttachments.setStorage(2, GL::TextureFormat::RGBA8, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
+    colorAttachments.setLabel("Color texture array (half-res 2x MSAA)");
+    depthAttachments = GL::MultisampleTexture2DArray();
+    depthAttachments.setStorage(
+        2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
+    depthAttachments.setLabel("Depth texture array (half-res 2x MSAA)");
+
+    for(size_t i = 0; i < FRAMES; i++)
+    {
+        framebuffers[i] = GL::Framebuffer({ { 0, 0 }, halfSize });
+        framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
+        framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
+
+        std::string label = Utility::format("Framebuffer {} (half-res)", i + 1);
+        framebuffers[i].setLabel(label);
+
+        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
+        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
+    }
 }
 
 void Application::drawEvent()
@@ -320,8 +330,7 @@ void Application::drawEvent()
 
 void Application::viewportEvent(ViewportEvent& event)
 {
-    // TODO
-    // resize framebuffers
+    resizeFramebuffers(event.framebufferSize());
     camera->setViewport(event.framebufferSize());
     ImGuiApplication::viewportEvent(event);
 }

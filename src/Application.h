@@ -55,15 +55,17 @@ private:
     void addObject(Magnum::Trade::AbstractImporter& importer, Magnum::UnsignedInt objectId, Object3D& parent);
     Object3D& duplicateObject(Object3D& object, Object3D& parent);
 
+    void resizeFramebuffers(Magnum::Vector2i frameBufferSize);
+
     // log
 
     std::fstream logFile;
     // global instances to override the ostream for all instances created later
     // we need to override each of them separately
     // don't use these, they're nullptr if the file can't be created
-    Corrade::Containers::Pointer<Corrade::Utility::Debug> debug;
-    Corrade::Containers::Pointer<Corrade::Utility::Warning> warning;
-    Corrade::Containers::Pointer<Corrade::Utility::Error> error;
+    Corrade::Containers::Pointer<Corrade::Utility::Debug> _debug;
+    Corrade::Containers::Pointer<Corrade::Utility::Warning> _warning;
+    Corrade::Containers::Pointer<Corrade::Utility::Error> _error;
 
     // scene graph
 
