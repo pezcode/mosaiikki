@@ -27,7 +27,7 @@ using namespace Feature;
 
 Application::Application(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
-    logFile("calculi.log", std::fstream::out | std::fstream::trunc),
+    logFile(std::string(NAME) + ".log", std::fstream::out | std::fstream::trunc),
     _debug(nullptr),
     _warning(nullptr),
     _error(nullptr),
@@ -55,7 +55,7 @@ Application::Application(const Arguments& arguments) :
 
     Configuration conf;
     conf.setSize({ 800, 600 });
-    conf.setTitle("calculi");
+    conf.setTitle(NAME);
     conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
     GLConfiguration glConf;

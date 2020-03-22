@@ -39,6 +39,8 @@ class Application : public ImGuiApplication
 public:
     explicit Application(const Arguments& arguments);
 
+    static constexpr char* NAME = "mosaiikki";
+
 private:
     typedef Magnum::SceneGraph::MatrixTransformation3D Transform3D;
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
