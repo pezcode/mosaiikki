@@ -10,13 +10,18 @@ set(SOURCES
 	SingleAxisTranslationAnimable.h
 	Shaders/ReconstructionShader.h
 	Shaders/ReconstructionShader.cpp
-	Shaders/ReconstructionShader.vert
-	Shaders/ReconstructionShader.frag
 	Shaders/VelocityShader.h
 	Shaders/VelocityShader.cpp
+)
+
+set(SHADERS
+	Shaders/ReconstructionShader.vert
+	Shaders/ReconstructionShader.frag
 	Shaders/VelocityShader.vert
 	Shaders/VelocityShader.frag
 )
+
+source_group("Shader Files" FILES ${SHADERS})
 
 if(MSVC)
 	# this is required to turn off automatic scaling and
@@ -43,7 +48,7 @@ find_package(MagnumIntegration REQUIRED ImGui)
 # embed shaders
 corrade_add_resource(SHADER_RESOURCES Shaders/resources.conf)
 
-add_executable(${CMAKE_PROJECT_NAME} WIN32 ${SOURCES} ${SHADER_RESOURCES})
+add_executable(${CMAKE_PROJECT_NAME} WIN32 ${SOURCES} ${SHADERS} ${SHADER_RESOURCES})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	Corrade::Main

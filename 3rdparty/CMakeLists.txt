@@ -1,5 +1,4 @@
-# TinyGltfImporter needs deprecated functions
-#set(BUILD_DEPRECATED OFF CACHE BOOL "" FORCE)
+set(BUILD_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 if(NOT BUILD_SHARED_LIBS)
     set(BUILD_STATIC ON CACHE BOOL "" FORCE)
@@ -47,5 +46,6 @@ add_subdirectory(magnum-plugins EXCLUDE_FROM_ALL)
 
 set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
 set(WITH_IMGUI ON CACHE BOOL "" FORCE)
+add_compile_definitions(IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
 add_subdirectory(magnum-integration EXCLUDE_FROM_ALL)

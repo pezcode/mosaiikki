@@ -1,8 +1,9 @@
 /build/
 /build_emscripten/
 
-# RenderDoc
+# Graphic debuggers
 /*.cap
+/Nsight
 
 # Prerequisites
 *.d

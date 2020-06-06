@@ -59,7 +59,7 @@ Application::Application(const Arguments& arguments) :
     conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
     GLConfiguration glConf;
-    glConf.setVersion(GL::Version::GL320);
+    glConf.setVersion(GL::Version::GL450); // GL::Version::GL320
 #ifdef CORRADE_IS_DEBUG_BUILD
     glConf.addFlags(GLConfiguration::Flag::Debug);
 #endif
@@ -71,8 +71,14 @@ Application::Application(const Arguments& arguments) :
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample);      // core in 3.2
 
-    // really only supported by Nvidia
-    //MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_locations);
+    // ARB extensions is really only supported by Nvidia (Maxwell and later)
+    // requires OpenGL 4.5
+    bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
+    bool ext_nv  = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
+    bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
+    // TODO Intel? Can't find a supported GL extension although D3D12 support for it exists
+
+    CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found");
 
 #ifdef CORRADE_IS_DEBUG_BUILD
     GL::DebugOutput::setDefaultCallback();
@@ -165,18 +171,43 @@ Application::Application(const Arguments& arguments) :
 
     framebuffers[0].bind();
 
+    // set sample locations
+
+    // default on Nvidia 1070:
     // 0: (0.75, 0.75)
     // 1: (0.25, 0.25)
     // seems to be the opposite of the D3D11 pattern
     // https://docs.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels
-    float samplePositions[2][2] = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
-    glGetMultisamplefv(GL_SAMPLE_POSITION, 0, samplePositions[0]);
-    glGetMultisamplefv(GL_SAMPLE_POSITION, 1, samplePositions[1]);
 
-    // TODO set sample locations ourselves
-    // glFramebufferSampleLocationsfv
-    // requires GL 4.5
-    // need to update Magnum
+    const GLsizei SAMPLE_COUNT = 2;
+    float samplePositions[SAMPLE_COUNT][2] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
+
+    if(ext_arb)
+    {
+        glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, &samplePositions[0][0]);
+    }
+    else if(ext_nv)
+    {
+        glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, &samplePositions[0][0]);
+    }
+    else if(ext_amd)
+    {
+        for(GLuint i = 0; i < SAMPLE_COUNT; i++)
+        {
+            glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, &samplePositions[i][0]);
+        }
+    }
+
+    // read and report sample locations
+    // just a sanity check, really
+    for(GLuint i = 0; i < SAMPLE_COUNT; i++)
+    {
+        // GL_SAMPLE_POSITION reads the default sample location with ARB_sample_locations
+        // AMD_sample_positions doesn't have GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
+        // does GL_SAMPLE_POSITION return the programmable or the default locations then?
+        GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB : GL_SAMPLE_POSITION;
+        glGetMultisamplefv(name, i, samplePositions[i]);
+    }
 
     Debug(Debug::Flag::NoSpace) << "MSAA 2x sample positions:" << Debug::newline << "(" << samplePositions[0][0] << ", "
                                 << samplePositions[0][1] << ")" << Debug::newline << "(" << samplePositions[1][0]
@@ -261,21 +292,21 @@ void Application::drawEvent()
         camera->draw(velocityDrawables);
     }
 
+    // jitter camera if necessary
+    Matrix4 projectionMatrix = camera->projectionMatrix();
+    if(currentFrame == JITTERED_FRAME)
+    {
+        // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
+        // width of NDC divided by pixel count
+        const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
+        Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
+        camera->setProjectionMatrix(jitteredMatrix);
+    }
+
     // render scene at half resolution
 
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (half-res)");
-
-        // jitter camera if necessary
-        Matrix4 projectionMatrix = camera->projectionMatrix();
-        if(currentFrame == JITTERED_FRAME)
-        {
-            // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
-            // width of NDC divided by pixel count
-            const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
-            Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
-            camera->setProjectionMatrix(jitteredMatrix);
-        }
 
         GL::Framebuffer& framebuffer = framebuffers[currentFrame];
         framebuffer.bind();
@@ -290,11 +321,10 @@ void Application::drawEvent()
         camera->draw(drawables);
 
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
-        GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
-
-        // undo jitter
-        camera->setProjectionMatrix(projectionMatrix);
     }
+
+    // undo jitter
+    camera->setProjectionMatrix(projectionMatrix);
 
     GL::defaultFramebuffer.bind();
 
@@ -302,6 +332,8 @@ void Application::drawEvent()
 
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
+
+        GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
 
         reconstructionShader.bindColor(colorAttachments)
             .bindDepth(depthAttachments)
