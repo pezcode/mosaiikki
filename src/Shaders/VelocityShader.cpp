@@ -20,7 +20,8 @@ VelocityShader::VelocityShader() : GL::AbstractShaderProgram()
     vert.addSource(rs.get("VelocityShader.vert"));
     frag.addSource(rs.get("VelocityShader.frag"));
 
-    GL::Shader::compile({ vert, frag });
+    bool compiled = GL::Shader::compile({ vert, frag });
+    CORRADE_ASSERT(compiled, "Failed to compile VelocityShader");
     attachShaders({ vert, frag });
     link();
 

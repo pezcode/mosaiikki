@@ -47,7 +47,8 @@ ReconstructionShader::ReconstructionShader() :
     frag.addSource(rs.get("ReconstructionShader.frag"));
 
     // possibly parallel compilation
-    GL::Shader::compile({ vert, frag });
+    bool compiled = GL::Shader::compile({ vert, frag });
+    CORRADE_ASSERT(compiled, "Failed to compile ReconstructionShader");
     attachShaders({ vert, frag });
     link();
 
