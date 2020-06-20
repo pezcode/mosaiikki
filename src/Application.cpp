@@ -42,16 +42,7 @@ Application::Application(const Arguments& arguments) :
     currentFrame(0),
     reconstructionShader(NoCreate)
 {
-    // Log
-
-    if(logFile.good())
-    {
-        _debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
-        _warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
-        _error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
-    }
-
-    // Configuration
+    // Configuration and GL context
 
     Configuration conf;
     conf.setSize({ 800, 600 });
@@ -74,13 +65,25 @@ Application::Application(const Arguments& arguments) :
     // ARB extensions is really only supported by Nvidia (Maxwell and later)
     // requires OpenGL 4.5
     bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
-    bool ext_nv  = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
+    bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
     // TODO Intel? Can't find a supported GL extension although D3D12 support for it exists
 
     CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found");
 
+    // Debug output
+
+    if(logFile.good())
+    {
+        _debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
+        _warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
+        _error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
+    }
+
+    profiler.setup(DebugTools::GLFrameProfiler::Value::FrameTime | DebugTools::GLFrameProfiler::Value::GpuDuration, 60);
+
 #ifdef CORRADE_IS_DEBUG_BUILD
+    // redirect debug messages to default Corrade Debug output
     GL::DebugOutput::setDefaultCallback();
     // disable unimportant output
     // markers and groups are only used for RenderDoc
@@ -205,7 +208,8 @@ Application::Application(const Arguments& arguments) :
         // GL_SAMPLE_POSITION reads the default sample location with ARB_sample_locations
         // AMD_sample_positions doesn't have GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
         // does GL_SAMPLE_POSITION return the programmable or the default locations then?
-        GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB : GL_SAMPLE_POSITION;
+        GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
+                              : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
         glGetMultisamplefv(name, i, samplePositions[i]);
     }
 
@@ -274,11 +278,22 @@ void Application::resizeFramebuffers(Magnum::Vector2i size)
 
 void Application::drawEvent()
 {
+    profiler.beginFrame();
+
     meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
     cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+
+    const Matrix4 unjitteredProjection = camera->projectionMatrix();
+
+    Matrix4 matrices[FRAMES];
+    // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
+    // width of NDC divided by pixel count
+    const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
+    matrices[JITTERED_FRAME] = Matrix4::translation(Vector3::xAxis(offset)) * unjitteredProjection;
+    matrices[1 - JITTERED_FRAME] = unjitteredProjection;
 
     // fill velocity buffer
 
@@ -289,18 +304,8 @@ void Application::drawEvent()
         velocityFramebuffer.clearColor(0, 0_rgbf);
         velocityFramebuffer.clearDepth(1.0f);
 
+        // use unjittered projection matrix
         camera->draw(velocityDrawables);
-    }
-
-    // jitter camera if necessary
-    Matrix4 projectionMatrix = camera->projectionMatrix();
-    if(currentFrame == JITTERED_FRAME)
-    {
-        // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
-        // width of NDC divided by pixel count
-        const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
-        Matrix4 jitteredMatrix = Matrix4::translation(Vector3::xAxis(offset)) * projectionMatrix;
-        camera->setProjectionMatrix(jitteredMatrix);
     }
 
     // render scene at half resolution
@@ -314,17 +319,33 @@ void Application::drawEvent()
         framebuffer.clearColor(0, clearColor);
         framebuffer.clearDepth(1.0f);
 
+        // TODO can we reuse the velocity pass depth buffer?
+        // velocity jitter (prev and cur projection matrix) would have to match current jitter
+        // we should manually filter the min value in a shader, pretty simple for halving resolution
+        /*
+        GL::Framebuffer::blit(velocityFramebuffer,
+                              framebuffer,
+                              velocityFramebuffer.viewport(),
+                              framebuffer.viewport(),
+                              GL::FramebufferBlit::Depth,
+                              GL::FramebufferBlitFilter::Linear);
+
+        GL::Renderer::setDepthMask(GL_FALSE); // disable depth writing
+        */
+
         // run fragment shader for each sample
         GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
         GL::Renderer::setMinSampleShading(1.0f);
 
+        // jitter camera if necessary
+        camera->setProjectionMatrix(matrices[currentFrame]);
         camera->draw(drawables);
 
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
     }
 
-    // undo jitter
-    camera->setProjectionMatrix(projectionMatrix);
+    // undo possible jitter
+    camera->setProjectionMatrix(unjitteredProjection);
 
     GL::defaultFramebuffer.bind();
 
@@ -356,6 +377,8 @@ void Application::drawEvent()
     currentFrame = (currentFrame + 1) % FRAMES;
     timeline.nextFrame();
 
+    profiler.endFrame();
+
     swapBuffers();
     redraw();
 }
@@ -369,34 +392,53 @@ void Application::viewportEvent(ViewportEvent& event)
 
 void Application::buildUI()
 {
+    static bool animatedObjects = false;
+    static bool animatedCamera = false;
+    static bool debugShowSamples = false;
+    static int debugSamples = 0;
+    static bool debugShowVelocity = false;
+
     //ImGui::ShowTestWindow();
+
+    const ImVec2 margin = { 5, 5 };
+    const ImVec2 screen = ImGui::GetIO().DisplaySize;
 
     ImGui::Begin(
         "Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-    static bool animatedObjects = false;
-    static bool animatedCamera = false;
-    ImGui::Checkbox("Animated objects", &animatedObjects);
-    ImGui::Checkbox("Animated camera", &animatedCamera);
+    {
+        ImGui::Checkbox("Animated objects", &animatedObjects);
+        ImGui::Checkbox("Animated camera", &animatedCamera);
 
-    ImGui::Separator();
+        ImGui::Separator();
 
-    static bool debugShowSamples = false;
-    ImGui::Checkbox("Show samples", &debugShowSamples);
-    ImGui::SameLine();
-    float w = ImGui::CalcItemWidth() / 3.0f;
-    ImGui::SetNextItemWidth(w);
-    static int debugSamples = 0;
-    const char* const debugSamplesOptions[] = { "Even", "Odd" };
-    ImGui::Combo("", &debugSamples, debugSamplesOptions, Containers::arraySize(debugSamplesOptions));
+        ImGui::Checkbox("Show samples", &debugShowSamples);
+        ImGui::SameLine();
+        float w = ImGui::CalcItemWidth() / 3.0f;
+        ImGui::SetNextItemWidth(w);
 
-    static bool debugShowVelocity = false;
-    ImGui::Checkbox("Show velocity", &debugShowVelocity);
+        const char* const debugSamplesOptions[] = { "Even", "Odd" };
+        ImGui::Combo("", &debugSamples, debugSamplesOptions, Containers::arraySize(debugSamplesOptions));
 
-    const ImVec2 margin = { 5, 5 };
-    ImVec2 size = ImGui::GetWindowSize();
-    ImVec2 screen = ImGui::GetIO().DisplaySize;
-    ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
-    ImGui::SetWindowPos(pos);
+        ImGui::Checkbox("Show velocity", &debugShowVelocity);
+
+        ImVec2 size = ImGui::GetWindowSize();
+        ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
+        ImGui::SetWindowPos(pos);
+    }
+    ImGui::End();
+
+    ImGui::Begin("Statistics",
+                 nullptr,
+                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+    {
+        //if(profiler.isMeasurementAvailable(0))
+        {
+            ImGui::Text("%s", profiler.statistics().c_str());
+        }
+
+        ImVec2 pos = { margin.x, margin.y };
+        ImGui::SetWindowPos(pos);
+    }
     ImGui::End();
 
     reconstructionShader.setDebugShowSamples(debugShowSamples ? (ReconstructionShader::DebugSamples)(debugSamples + 1)

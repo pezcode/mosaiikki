@@ -41,6 +41,7 @@ find_package(Magnum REQUIRED
 	Trade
 	MeshTools
 	AnySceneImporter
+    DebugTools
 )
 find_package(MagnumPlugins REQUIRED TinyGltfImporter)
 find_package(MagnumIntegration REQUIRED ImGui)
@@ -61,6 +62,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	Magnum::Trade
 	Magnum::MeshTools
 	Magnum::AnySceneImporter
+    Magnum::DebugTools
 	MagnumPlugins::TinyGltfImporter
 	MagnumIntegration::ImGui
 )

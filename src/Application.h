@@ -19,6 +19,7 @@
 #include <Magnum/GL/Texture.h>
 #include <Magnum/GL/MultisampleTexture.h>
 #include <Magnum/GL/Renderbuffer.h>
+#include <Magnum/DebugTools/FrameProfiler.h>
 #include <Magnum/Math/Color.h>
 #include <Corrade/Utility/Debug.h>
 #include <Corrade/Containers/Pointer.h>
@@ -59,7 +60,7 @@ private:
 
     void resizeFramebuffers(Magnum::Vector2i frameBufferSize);
 
-    // log
+    // debug output
 
     std::fstream logFile;
     // global instances to override the ostream for all instances created later
@@ -68,6 +69,8 @@ private:
     Corrade::Containers::Pointer<Corrade::Utility::Debug> _debug;
     Corrade::Containers::Pointer<Corrade::Utility::Warning> _warning;
     Corrade::Containers::Pointer<Corrade::Utility::Error> _error;
+
+    Magnum::DebugTools::GLFrameProfiler profiler;
 
     // scene graph
 

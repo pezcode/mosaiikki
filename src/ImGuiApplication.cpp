@@ -64,8 +64,7 @@ void ImGuiApplication::drawEvent()
 
     buildUI();
 
-    // requires updated ImGuiIntegration
-    //imgui.updateApplicationCursor(*this);
+    imgui.updateApplicationCursor(*this);
 
     // state required for imgui rendering
     // alpha blending, scissor, no culling, no depth test
