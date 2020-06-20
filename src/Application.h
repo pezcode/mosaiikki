@@ -58,6 +58,7 @@ private:
     void addObject(Magnum::Trade::AbstractImporter& importer, Magnum::UnsignedInt objectId, Object3D& parent);
     Object3D& duplicateObject(Object3D& object, Object3D& parent);
 
+    static void updateProjectionMatrix(Magnum::SceneGraph::Camera3D& camera);
     void resizeFramebuffers(Magnum::Vector2i frameBufferSize);
 
     // debug output

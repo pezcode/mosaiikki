@@ -116,10 +116,8 @@ Application::Application(const Arguments& arguments) :
 
     cameraObject.setParent(&scene).translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
-    (*camera)
-        .setAspectRatioPolicy(SceneGraph::AspectRatioPolicy::Extend)
-        .setProjectionMatrix(Matrix4::perspectiveProjection(90.0_degf, 1.0f, 0.5f, 50.0f))
-        .setViewport(framebufferSize());
+    camera->setViewport(framebufferSize());
+    updateProjectionMatrix(*camera);
 
     SceneGraph::Animable3D* animable = new Animable3D(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
     cameraAnimables.add(*animable);
@@ -232,7 +230,20 @@ Application::Application(const Arguments& arguments) :
     timeline.start();
 }
 
-void Application::resizeFramebuffers(Magnum::Vector2i size)
+void Application::updateProjectionMatrix(Magnum::SceneGraph::Camera3D& cam)
+{
+    constexpr float near = 0.5f;
+    constexpr float far = 50.0f;
+    //constexpr Rad hFOV_4by3 = 90.0_degf;
+    //Rad vFOV = Math::atan(Math::tan(hFOV_4by3 * 0.5f) / (4.0f / 3.0f)) * 2.0f;
+    constexpr Rad vFOV = 73.74_degf;
+
+    float aspectRatio = Vector2(cam.viewport()).aspectRatio();
+    Rad hFOV = Math::atan(Math::tan(vFOV * 0.5f) * aspectRatio) * 2.0f;
+    cam.setProjectionMatrix(Matrix4::perspectiveProjection(hFOV, aspectRatio, near, far));
+}
+
+void Application::resizeFramebuffers(Vector2i size)
 {
     // make texture dimensions multiple of two
     size += size % 2;
@@ -387,6 +398,7 @@ void Application::viewportEvent(ViewportEvent& event)
 {
     resizeFramebuffers(event.framebufferSize());
     camera->setViewport(event.framebufferSize());
+    updateProjectionMatrix(*camera);
     ImGuiApplication::viewportEvent(event);
 }
 
