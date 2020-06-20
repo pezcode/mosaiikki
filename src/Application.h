@@ -6,6 +6,7 @@
 #include "SingleAxisTranslationAnimable.h"
 #include "Shaders/VelocityShader.h"
 #include "Shaders/ReconstructionShader.h"
+#include "Shaders/DepthBlitShader.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
@@ -113,5 +114,6 @@ private:
 
     size_t currentFrame;
 
+    DepthBlitShader depthBlitShader;
     ReconstructionShader reconstructionShader;
 };

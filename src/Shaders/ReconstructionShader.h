@@ -32,8 +32,6 @@ public:
     void draw();
 
 private:
-    ReconstructionShader& setResolutionChanged(bool changed);
-
     static constexpr Magnum::GL::Version GLVersion = Magnum::GL::Version::GL300;
 
     Magnum::GL::Mesh triangle;
@@ -49,7 +47,7 @@ private:
     Magnum::Int depthSampler;
     Magnum::Int velocitySampler;
     Magnum::Int currentFrameUniform;
-    Magnum::Int resolutionChangedUniform;
+    Magnum::Int cameraParametersChangedUniform;
     Magnum::Int viewportUniform;
     Magnum::Int prevViewProjectionUniform;
     Magnum::Int invViewProjectionUniform;
@@ -57,6 +55,6 @@ private:
     Magnum::Int debugShowVelocityUniform;
 
     Magnum::Vector2i viewport;
-    bool resolutionChanged;
+    Magnum::Matrix4 projection;
     Magnum::Matrix4 prevViewProjection;
 };

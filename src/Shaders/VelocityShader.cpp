@@ -7,7 +7,11 @@
 using namespace Magnum;
 
 VelocityShader::VelocityShader(NoCreateT) :
-    GL::AbstractShaderProgram(NoCreate), oldModelViewProjectionUniform(-1), modelViewProjectionUniform(-1)
+    GL::AbstractShaderProgram(NoCreate),
+    oldModelViewProjectionUniform(-1),
+    modelViewProjectionUniform(-1),
+    oldProjection(Math::IdentityInit),
+    projection(Math::IdentityInit)
 {
 }
 
@@ -29,14 +33,26 @@ VelocityShader::VelocityShader() : GL::AbstractShaderProgram()
     modelViewProjectionUniform = uniformLocation("modelViewProjection");
 }
 
-VelocityShader& VelocityShader::setOldModelViewProjection(const Magnum::Matrix4& mvp)
+VelocityShader& VelocityShader::setOldTransformation(const Magnum::Matrix4& oldTransformationMatrix)
 {
-    setUniform(oldModelViewProjectionUniform, mvp);
+    setUniform(oldModelViewProjectionUniform, oldProjection * oldTransformationMatrix);
     return *this;
 }
 
-VelocityShader& VelocityShader::setModelViewProjection(const Magnum::Matrix4& mvp)
+VelocityShader& VelocityShader::setTransformation(const Magnum::Matrix4& transformationMatrix)
 {
-    setUniform(modelViewProjectionUniform, mvp);
+    setUniform(modelViewProjectionUniform, projection * transformationMatrix);
+    return *this;
+}
+
+VelocityShader& VelocityShader::setOldProjection(const Magnum::Matrix4& oldProjectionMatrix)
+{
+    oldProjection = oldProjectionMatrix;
+    return *this;
+}
+
+VelocityShader& VelocityShader::setProjection(const Magnum::Matrix4& projectionMatrix)
+{
+    projection = projectionMatrix;
     return *this;
 }

@@ -16,31 +16,28 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
     depthSampler(-1),
     velocitySampler(-1),
     currentFrameUniform(-1),
-    resolutionChangedUniform(-1),
+    cameraParametersChangedUniform(-1),
     viewportUniform(-1),
     prevViewProjectionUniform(-1),
     invViewProjectionUniform(-1),
     debugShowSamplesUniform(-1),
     debugShowVelocityUniform(-1),
     viewport({ 0, 0 }),
-    resolutionChanged(true),
+    projection(Math::IdentityInit),
     prevViewProjection(Math::IdentityInit)
 {
 }
 
 ReconstructionShader::ReconstructionShader() :
-    GL::AbstractShaderProgram(), viewport({ 0, 0 }), resolutionChanged(true), prevViewProjection(Math::IdentityInit)
+    GL::AbstractShaderProgram(),
+    viewport({ 0, 0 }),
+    projection(Math::IdentityInit),
+    prevViewProjection(Math::IdentityInit)
 {
     triangle = MeshTools::fullScreenTriangle(GLVersion);
 
     GL::Shader vert(GLVersion, GL::Shader::Type::Vertex);
     GL::Shader frag(GLVersion, GL::Shader::Type::Fragment);
-
-    // TODO
-    // use Resource::overrideGroup to load resources from files if they exist
-    // together with FileWatcher this will allow shader hot-reloading
-    // https://doc.magnum.graphics/corrade/classCorrade_1_1Utility_1_1Resource.html#a06013f7ed2126fc3f81bcfde849faf69
-    // https://doc.magnum.graphics/corrade/classCorrade_1_1Utility_1_1FileWatcher.html
 
     Utility::Resource rs("shaders");
     vert.addSource(rs.get("ReconstructionShader.vert"));
@@ -56,7 +53,7 @@ ReconstructionShader::ReconstructionShader() :
     depthSampler = uniformLocation("depth");
     velocitySampler = uniformLocation("velocity");
     currentFrameUniform = uniformLocation("currentFrame");
-    resolutionChangedUniform = uniformLocation("resolutionChanged");
+    cameraParametersChangedUniform = uniformLocation("cameraParametersChanged");
     viewportUniform = uniformLocation("viewport");
     prevViewProjectionUniform = uniformLocation("prevViewProjection");
     invViewProjectionUniform = uniformLocation("invViewProjection");
@@ -93,14 +90,19 @@ ReconstructionShader& ReconstructionShader::setCurrentFrame(Int currentFrame)
 
 ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& camera)
 {
-    resolutionChanged = viewport != camera.viewport();
-    viewport = camera.viewport();
-    const Matrix4 viewProjection = camera.projectionMatrix() * camera.cameraMatrix();
+    // TODO this doesn't work when using (jittered) projection matrix to calculate velocity in the shader
+    // current code removes the camera jitter before calling this function
+    bool projectionChanged = (projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
+    bool cameraParametersChanged = viewport != camera.viewport() || projectionChanged;
+    setUniform(cameraParametersChangedUniform, cameraParametersChanged);
+    projection = camera.projectionMatrix();
 
+    viewport = camera.viewport();
     setUniform(viewportUniform, viewport);
+
+    const Matrix4 viewProjection = camera.projectionMatrix() * camera.cameraMatrix();
     setUniform(prevViewProjectionUniform, prevViewProjection);
     setUniform(invViewProjectionUniform, viewProjection.inverted());
-
     prevViewProjection = viewProjection;
 
     return *this;
@@ -118,14 +120,7 @@ ReconstructionShader& ReconstructionShader::setDebugShowVelocity(bool show)
     return *this;
 }
 
-ReconstructionShader& ReconstructionShader::setResolutionChanged(bool changed)
-{
-    setUniform(resolutionChangedUniform, changed);
-    return *this;
-}
-
 void ReconstructionShader::draw()
 {
-    setResolutionChanged(resolutionChanged);
     AbstractShaderProgram::draw(triangle);
 }

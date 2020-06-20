@@ -15,12 +15,15 @@ public:
         Magnum::SceneGraph::Drawable3D(object),
         shader(shader),
         mesh(mesh),
-        oldModelViewProjection(Magnum::Math::IdentityInit)
+        oldTransformation(Magnum::Math::IdentityInit)
     {
     }
 
     VelocityDrawable(const VelocityDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object), shader(other.shader), mesh(other.mesh)
+        Magnum::SceneGraph::Drawable3D(object),
+        shader(other.shader),
+        mesh(other.mesh),
+        oldTransformation(other.oldTransformation)
     {
     }
 
@@ -30,17 +33,16 @@ public:
     }
 
 private:
-    virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
+    virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& /*camera*/) override
     {
-        shader.setOldModelViewProjection(oldModelViewProjection);
-        Magnum::Matrix4 modelViewProjection = camera.projectionMatrix() * transformationMatrix;
-        shader.setModelViewProjection(modelViewProjection);
-        oldModelViewProjection = modelViewProjection;
+        shader.setOldTransformation(oldTransformation);
+        shader.setTransformation(transformationMatrix);
+        oldTransformation = transformationMatrix;
 
         shader.draw(mesh);
     }
 
     VelocityShader& shader;
     Magnum::GL::Mesh& mesh;
-    Magnum::Matrix4 oldModelViewProjection;
+    Magnum::Matrix4 oldTransformation;
 };

@@ -12,6 +12,8 @@ set(SOURCES
 	Shaders/ReconstructionShader.cpp
 	Shaders/VelocityShader.h
 	Shaders/VelocityShader.cpp
+    Shaders/DepthBlitShader.h
+	Shaders/DepthBlitShader.cpp
 )
 
 set(SHADERS
@@ -19,6 +21,8 @@ set(SHADERS
 	Shaders/ReconstructionShader.frag
 	Shaders/VelocityShader.vert
 	Shaders/VelocityShader.frag
+    Shaders/DepthBlitShader.vert
+	Shaders/DepthBlitShader.frag
 )
 
 source_group("Shader Files" FILES ${SHADERS})

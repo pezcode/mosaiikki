@@ -10,11 +10,16 @@ public:
     VelocityShader(Magnum::NoCreateT);
     VelocityShader();
 
-    VelocityShader& setOldModelViewProjection(const Magnum::Matrix4& mvp);
-    VelocityShader& setModelViewProjection(const Magnum::Matrix4& mvp);
+    VelocityShader& setOldTransformation(const Magnum::Matrix4& oldTransformation);
+    VelocityShader& setTransformation(const Magnum::Matrix4& transformation);
+    VelocityShader& setOldProjection(const Magnum::Matrix4& oldProjection);
+    VelocityShader& setProjection(const Magnum::Matrix4& projection);
 
 private:
     static constexpr Magnum::GL::Version GLVersion = Magnum::GL::Version::GL300;
     Magnum::Int oldModelViewProjectionUniform;
     Magnum::Int modelViewProjectionUniform;
+
+    Magnum::Matrix4 oldProjection;
+    Magnum::Matrix4 projection;
 };

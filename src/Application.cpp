@@ -40,6 +40,7 @@ Application::Application(const Arguments& arguments) :
     colorAttachments(NoCreate),
     depthAttachments(NoCreate),
     currentFrame(0),
+    depthBlitShader(NoCreate),
     reconstructionShader(NoCreate)
 {
     // Configuration and GL context
@@ -223,6 +224,9 @@ Application::Application(const Arguments& arguments) :
     meshShader.setAmbientColor(0x111111_rgbf).setSpecularColor(0xffffff_rgbf).setShininess(80.0f);
     meshShader.setLabel("Phong shader");
 
+    depthBlitShader = DepthBlitShader();
+    depthBlitShader.setLabel("Depth blit shader");
+
     reconstructionShader = ReconstructionShader();
     reconstructionShader.setDebugShowSamples(ReconstructionShader::DebugSamples::Disabled);
     reconstructionShader.setLabel("Checkerboard resolve shader");
@@ -294,12 +298,16 @@ void Application::drawEvent()
     meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
     cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
+    constexpr GL::Renderer::DepthFunction depthFunction = GL::Renderer::DepthFunction::LessOrEqual; // default: Less
+
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+    GL::Renderer::setDepthFunction(depthFunction);
 
     const Matrix4 unjitteredProjection = camera->projectionMatrix();
 
-    Matrix4 matrices[FRAMES];
+    static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
+    Array<FRAMES, Matrix4> matrices;
     // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
     // width of NDC divided by pixel count
     const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
@@ -315,7 +323,11 @@ void Application::drawEvent()
         velocityFramebuffer.clearColor(0, 0_rgbf);
         velocityFramebuffer.clearDepth(1.0f);
 
-        // use unjittered projection matrix
+        // use current frame's jitter
+        // this only matters because we blit the velocity frame buffer to reuse it for the half resolution pass
+        // without it, you can use either jittered or unjittered, as long as they match
+        velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
+
         camera->draw(velocityDrawables);
     }
 
@@ -326,23 +338,28 @@ void Application::drawEvent()
 
         GL::Framebuffer& framebuffer = framebuffers[currentFrame];
         framebuffer.bind();
+
         const Color3 clearColor = 0x111111_rgbf;
         framebuffer.clearColor(0, clearColor);
-        framebuffer.clearDepth(1.0f);
 
-        // TODO can we reuse the velocity pass depth buffer?
-        // velocity jitter (prev and cur projection matrix) would have to match current jitter
-        // we should manually filter the min value in a shader, pretty simple for halving resolution
-        /*
-        GL::Framebuffer::blit(velocityFramebuffer,
-                              framebuffer,
-                              velocityFramebuffer.viewport(),
-                              framebuffer.viewport(),
-                              GL::FramebufferBlit::Depth,
-                              GL::FramebufferBlitFilter::Linear);
+        // copy and reuse velocity buffer
+        if(true)
+        {
+            GL::Renderer::setDepthFunction(
+                GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
+            GL::Renderer::setColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // disable color writing
 
-        GL::Renderer::setDepthMask(GL_FALSE); // disable depth writing
-        */
+            // blit to half size with max filter
+            depthBlitShader.bindDepth(velocityDepthAttachment);
+            depthBlitShader.draw();
+
+            GL::Renderer::setColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // enable color writing
+            GL::Renderer::setDepthFunction(depthFunction);                  // restore depth test
+        }
+        else
+        {
+            framebuffer.clearDepth(1.0f);
+        }
 
         // run fragment shader for each sample
         GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
@@ -355,7 +372,7 @@ void Application::drawEvent()
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
     }
 
-    // undo possible jitter
+    // undo any jitter
     camera->setProjectionMatrix(unjitteredProjection);
 
     GL::defaultFramebuffer.bind();
@@ -371,8 +388,8 @@ void Application::drawEvent()
             .bindDepth(depthAttachments)
             .bindVelocity(velocityAttachment)
             .setCurrentFrame(currentFrame)
-            .setCameraInfo(*camera)
-            .draw();
+            .setCameraInfo(*camera);
+        reconstructionShader.draw();
     }
 
     // render UI
@@ -386,8 +403,10 @@ void Application::drawEvent()
     // housekeeping
 
     currentFrame = (currentFrame + 1) % FRAMES;
-    timeline.nextFrame();
 
+    oldMatrices = matrices;
+
+    timeline.nextFrame();
     profiler.endFrame();
 
     swapBuffers();
@@ -412,7 +431,7 @@ void Application::buildUI()
 
     //ImGui::ShowTestWindow();
 
-    const ImVec2 margin = { 5, 5 };
+    const ImVec2 margin = { 5.0f, 5.0f };
     const ImVec2 screen = ImGui::GetIO().DisplaySize;
 
     ImGui::Begin(
@@ -443,10 +462,7 @@ void Application::buildUI()
                  nullptr,
                  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     {
-        //if(profiler.isMeasurementAvailable(0))
-        {
-            ImGui::Text("%s", profiler.statistics().c_str());
-        }
+        ImGui::Text("%s", profiler.statistics().c_str());
 
         ImVec2 pos = { margin.x, margin.y };
         ImGui::SetWindowPos(pos);

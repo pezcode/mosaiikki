@@ -12,10 +12,11 @@ uniform sampler2D velocity;
 
 uniform int currentFrame;
 
-uniform bool resolutionChanged;
+uniform bool cameraParametersChanged;
 uniform ivec2 viewport;
 uniform mat4 prevViewProjection;
 uniform mat4 invViewProjection;
+uniform vec4 depthTransform;
 
 uniform int debugShowSamples = 0;
 uniform bool debugShowVelocity = false;
@@ -57,6 +58,10 @@ layout(location = 0) out vec4 fragColor;
 // | 1 |   |
 // +---+---+
 
+// the odd frames are jittered half a pixel to the right
+// so the sample positions overlap into the even frames
+// to get e.g. quadrant 1, 
+
 int calculateQuadrant(ivec2 pixelCoords)
 {
 	return (pixelCoords.x & 1) + (pixelCoords.y & 1) * 2;
@@ -64,35 +69,18 @@ int calculateQuadrant(ivec2 pixelCoords)
 
 vec4 fetchQuadrant(sampler2DMSArray tex, ivec2 coords, int quadrant)
 {
-	/*
-	if(quadrant == 0)
-		return texelFetch(color[0], coords, 1);
-	else if(quadrant == 1)
-		return texelFetch(color[1], coords + ivec2(1, 0), 1);
-	else if(quadrant == 2)
-		return texelFetch(color[1], coords, 0);
-	else if(quadrant == 3)
-		return texelFetch(color[0], coords, 0);
-	*/
-
-	if(quadrant == 0)
-		return texelFetch(tex, ivec3(coords, 0), 1);
-	else if(quadrant == 1)
-		return texelFetch(tex, ivec3(coords + ivec2(1, 0), 1), 1);
-	else if(quadrant == 2)
-		return texelFetch(tex, ivec3(coords, 1), 0);
-	else if(quadrant == 3)
-		return texelFetch(tex, ivec3(coords, 0), 0);
-}
-
-vec4 undoTonemap(vec4 color)
-{
-	return color;
-}
-
-vec4 tonemap(vec4 color)
-{
-	return color;
+	switch(quadrant)
+	{
+		default:
+		case 0:
+			return texelFetch(tex, ivec3(coords, 0), 1);
+		case 1:
+			return texelFetch(tex, ivec3(coords + ivec2(1, 0), 1), 1);
+		case 2:
+			return texelFetch(tex, ivec3(coords, 1), 0);
+		case 3:
+			return texelFetch(tex, ivec3(coords, 0), 0);
+	}
 }
 
 #define UP 0
@@ -103,6 +91,25 @@ vec4 tonemap(vec4 color)
 void calculateAverageOffsets(out ivec2 offsets[4], out ivec4 quadrants)
 {
 
+}
+
+vec4 tonemap(vec4 color)
+{
+	return color;
+}
+
+// undo tonemap operation
+// averaging color values is only correct in linear space
+vec4 undoTonemap(vec4 color)
+{
+	return color;
+}
+
+// undo depth projection
+// averaging depth values is only correct in linear view space
+float screenToViewDepth(float depth)
+{
+	return (depth * depthTransform.x + depthTransform.y) / (depth * depthTransform.z + depthTransform.w);
 }
 
 vec4 fetchColorAverage(ivec2 coords, int quadrant)
@@ -129,7 +136,8 @@ vec4 fetchColorAverage(ivec2 coords, int quadrant)
 	return tonemap(result * 0.25);
 }
 
-vec4 fetchDepthAverage(ivec2 coords, int quadrant)
+// returns averaged depth in view space
+float fetchDepthAverage(ivec2 coords, int quadrant)
 {
 	const ivec2 offsets[4] = ivec2[4](
 		ivec2(0, 0),
@@ -145,11 +153,11 @@ vec4 fetchDepthAverage(ivec2 coords, int quadrant)
 		0
 	);
 
-	vec4 result =
-		fetchQuadrant(depth, coords + offsets[UP   ], quadrants[UP   ]) +
-		fetchQuadrant(depth, coords + offsets[DOWN ], quadrants[DOWN ]) +
-		fetchQuadrant(depth, coords + offsets[LEFT ], quadrants[LEFT ]) +
-		fetchQuadrant(depth, coords + offsets[RIGHT], quadrants[RIGHT]);
+	float result =
+		fetchQuadrant(depth, coords + offsets[UP   ], quadrants[UP   ]).x +
+		fetchQuadrant(depth, coords + offsets[DOWN ], quadrants[DOWN ]).x +
+		fetchQuadrant(depth, coords + offsets[LEFT ], quadrants[LEFT ]).x +
+		fetchQuadrant(depth, coords + offsets[RIGHT], quadrants[RIGHT]).x;
 	return result * 0.25;
 }
 
@@ -169,27 +177,29 @@ ivec2 reprojectPixel(ivec2 coords, float depth)
 
 void main()
 {
-	if(debugShowVelocity)
-	{
-		vec2 vel = texture2D(velocity, gl_FragCoord.xy / viewport).xy * viewport;
-		fragColor = vec4(abs(vel), 0.0, 1.0);
-		return;
-	}
+	ivec2 coords = ivec2(floor(gl_FragCoord.xy));
+    ivec2 halfCoords = coords >> 1;
+	int quadrant = calculateQuadrant(coords);
 
-	ivec2 fullCoords = ivec2(floor(gl_FragCoord.xy));
-    ivec2 halfCoords = fullCoords >> 1;
-	int quadrant = calculateQuadrant(fullCoords);
-
-	const ivec2 CURRENT_SAMPLES[2] = ivec2[](
+	const ivec2 FRAME_QUADRANTS[2] = ivec2[](
 		ivec2(3, 0),
 		ivec2(2, 1)
 	);
-	ivec2 currentQuadrants = CURRENT_SAMPLES[currentFrame];
+
+	ivec2 currentQuadrants = FRAME_QUADRANTS[currentFrame];
+
+	// debug output: velocity buffer
+	if(debugShowVelocity)
+	{
+		vec2 vel = texelFetch(velocity, coords, 0).xy;
+		fragColor = vec4(abs(vel * 255.0), 0.0, 1.0);
+		return;
+	}
 
 	// debug output: checkered frame
 	if(debugShowSamples != 0)
 	{
-		ivec2 boardQuadrants = CURRENT_SAMPLES[debugShowSamples - 1];
+		ivec2 boardQuadrants = FRAME_QUADRANTS[debugShowSamples - 1];
 		if(any(equal(vec2(quadrant), boardQuadrants)))
 			fragColor = fetchQuadrant(color, halfCoords, quadrant);
 		else
@@ -206,35 +216,61 @@ void main()
 	}
 
 	// we have no old data, use average
-	if(resolutionChanged)
+	if(cameraParametersChanged)
 	{
-		fetchColorAverage(halfCoords, quadrant);
+		fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
 	}
 
 	// find pixel position in previous frame
-	// for fully general results, we'd sample from a velocity buffer here
-	// for now, reproject pixel to get delta from camera transformation
+	// for fully general results, we sample from a velocity buffer here
+	// if we only have a moving camera, we can reproject using the camera transformation
 
 	//float z = fetchQuadrant(depth, halfCoords, quadrant).x;
-	//ivec2 oldCoords = reprojectPixel(fullCoords, z);
+	//ivec2 oldCoords = reprojectPixel(coords, z);
 
-	vec2 diff = texture2D(velocity, gl_FragCoord.xy / viewport).xy * viewport;
+	vec2 diff = texelFetch(velocity, coords, 0).xy * viewport;
 	ivec2 oldCoords = ivec2(floor(gl_FragCoord.xy - diff));
+
+	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
+	{
+		// previous position is outside the screen
+		// -> interpolate
+		fragColor = fetchColorAverage(halfCoords, quadrant);
+		return;
+	}
 
 	ivec2 oldHalfCoords = oldCoords >> 1;
 	int oldQuadrant = calculateQuadrant(oldCoords);
 
 	// is the previous pixel in an old frame quadrant?
-	ivec2 oldQuadrants = CURRENT_SAMPLES[1 - currentFrame];
-	if(any(equal(vec2(oldQuadrant), oldQuadrants)))
+	ivec2 oldQuadrants = FRAME_QUADRANTS[1 - currentFrame];
+	if(!any(equal(vec2(oldQuadrant), oldQuadrants)))
 	{
-		fragColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
+		// it's not, movement cancelled jitter so there's no shading information
+		// -> interpolate
+		fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
 	}
 
-	// previous pixel position is not in old frame quadrants, use current average
-	//fragColor = fetchColorAverage(halfCoords, quadrant);
+	// check if old frame's pixel is occluded
 
-	fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+	// simple variant: always assume occlusion if anything moved more than a half-res pixel
+	bool occluded = any(greaterThan(abs(oldCoords - coords), ivec2(1)));
+	// more correct heuristic: check depth against current depth average
+	if(false)
+	{
+		const float DEPTH_TOLERANCE = 0.01;
+		float currentDepthAverage = fetchDepthAverage(halfCoords, quadrant);
+		float oldDepth = fetchQuadrant(depth, oldHalfCoords, oldQuadrant).x;
+		occluded = abs(currentDepthAverage - oldDepth) >= DEPTH_TOLERANCE;
+	}
+
+	if(occluded)
+	{
+		fragColor = fetchColorAverage(halfCoords, quadrant);
+		return;
+	}
+
+	fragColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
 }
