@@ -88,9 +88,8 @@ ReconstructionShader& ReconstructionShader::setCurrentFrame(Int currentFrame)
 
 ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& camera)
 {
-    // TODO this doesn't work when using (jittered) projection matrix to calculate velocity in the shader
-    // current code removes the camera jitter before calling this function
-    bool projectionChanged = (projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
+    // this check will always fail unless we somehow manually account for the jitter
+    bool projectionChanged = false; //(projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
     bool cameraParametersChanged = viewport != camera.viewport() || projectionChanged;
     setUniform(cameraParametersChangedUniform, cameraParametersChanged);
     projection = camera.projectionMatrix();
@@ -109,14 +108,18 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
 ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruction& options)
 {
     GLint options_bitset = 0;
-    if(options.assumeOcclusion)
+    if(options.createVelocityBuffer)
         options_bitset |= (1 << 0);
-    if(options.debug.showSamples != Options::Reconstruction::Debug::Samples::All)
+    if(options.assumeOcclusion)
         options_bitset |= (1 << 1);
-    if(options.debug.showSamples == Options::Reconstruction::Debug::Samples::Even)
+    if(options.debug.showSamples != Options::Reconstruction::Debug::Samples::Combined)
         options_bitset |= (1 << 2);
-    if(options.debug.showVelocity)
+    if(options.debug.showSamples == Options::Reconstruction::Debug::Samples::Even)
         options_bitset |= (1 << 3);
+    if(options.debug.showVelocity)
+        options_bitset |= (1 << 4);
+    if(options.debug.showColors)
+        options_bitset |= (1 << 5);
 
     setUniform(optionsUniform, options_bitset);
     return *this;

@@ -2,6 +2,7 @@
 
 #include <Magnum/Platform/GlfwApplication.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
+#include <imgui_internal.h> // PushItemFlag
 
 class ImGuiApplication : public Magnum::Platform::Application
 {
@@ -47,4 +48,30 @@ private:
     void init();
 
     Magnum::ImGuiIntegration::Context imgui;
+};
+
+// helper for disabled widgets
+class ImGuiDisabledZone
+{
+public:
+    ImGuiDisabledZone(bool disabled = true) : disabled(disabled)
+    {
+        if(disabled)
+        {
+            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+        }
+    }
+
+    ~ImGuiDisabledZone()
+    {
+        if(disabled)
+        {
+            ImGui::PopStyleVar();
+            ImGui::PopItemFlag();
+        }
+    }
+
+private:
+    bool disabled;
 };

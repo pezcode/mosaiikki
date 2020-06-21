@@ -19,10 +19,13 @@ uniform mat4 invViewProjection;
 //uniform vec4 depthTransform;
 
 // this should match the bit flags in ReconstructionShader::setOptions
-#define ASSUME_OCCLUSION        (1 << 0)
-#define DEBUG_SHOW_SAMPLES      (1 << 1)
-#define DEBUG_SHOW_EVEN_SAMPLES (1 << 2)
-#define DEBUG_SHOW_VELOCITY     (1 << 3)
+#define USE_VELOCITY_BUFFER     (1 << 0)
+#define ASSUME_OCCLUSION        (1 << 1)
+
+#define DEBUG_SHOW_SAMPLES      (1 << 2)
+#define DEBUG_SHOW_EVEN_SAMPLES (1 << 3)
+#define DEBUG_SHOW_VELOCITY     (1 << 4)
+#define DEBUG_SHOW_COLORS       (1 << 5)
 
 #define OPTION_SET(OPT) ((options & OPT) != 0)
 
@@ -214,13 +217,13 @@ void main()
 		if(any(equal(vec2(quadrant), boardQuadrants)))
 			fragColor = fetchQuadrant(color, halfCoords, quadrant);
 		else
-			fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+			fragColor = vec4(0.0, 0.0, 0.0, 0.0);
 		return;
 	}
 	
 	// was this pixel rendered with the most recent frame?
 	// -> just use it
-	if(any(equal(vec2(quadrant), currentQuadrants)))
+	if(any(equal(ivec2(quadrant), currentQuadrants)))
 	{
 		fragColor = fetchQuadrant(color, halfCoords, quadrant);
 		return;
@@ -234,20 +237,34 @@ void main()
 	}
 
 	// find pixel position in previous frame
-	// for fully general results, we sample from a velocity buffer here
-	// if we only have a moving camera, we can reproject using the camera transformation
+	ivec2 oldCoords = ivec2(0, 0);
 
-	//float z = fetchQuadrant(depth, halfCoords, quadrant).x;
-	//ivec2 oldCoords = reprojectPixel(coords, z);
+	// for fully general results, sample from a velocity buffer
+	if(OPTION_SET(USE_VELOCITY_BUFFER))
+	{
+		vec2 diff = texelFetch(velocity, coords, 0).xy * viewport;
+		oldCoords = ivec2(floor(gl_FragCoord.xy - diff));
+	}
+	else // if we only have a moving camera, we can reproject using the camera transformation
+	{
+		float z = fetchQuadrant(depth, halfCoords, quadrant).x;
+		oldCoords = reprojectPixel(coords, z);
+	}
 
-	vec2 diff = texelFetch(velocity, coords, 0).xy * viewport;
-	ivec2 oldCoords = ivec2(floor(gl_FragCoord.xy - diff));
+	if(any(notEqual(oldCoords, coords)))
+	{
+		fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		return;
+	}
 
 	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
 	{
 		// previous position is outside the screen
 		// -> interpolate
-		fragColor = fetchColorAverage(halfCoords, quadrant);
+		if(OPTION_SET(DEBUG_SHOW_COLORS))
+			fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+		else
+			fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
 	}
 
@@ -256,19 +273,21 @@ void main()
 
 	// is the previous pixel in an old frame quadrant?
 	ivec2 oldQuadrants = FRAME_QUADRANTS[1 - currentFrame];
-	if(!any(equal(vec2(oldQuadrant), oldQuadrants)))
+	if(!any(equal(ivec2(oldQuadrant), oldQuadrants)))
 	{
 		// it's not, movement cancelled jitter so there's no shading information
 		// -> interpolate
-		fragColor = fetchColorAverage(halfCoords, quadrant);
+		if(OPTION_SET(DEBUG_SHOW_COLORS))
+			fragColor = vec4(0.0, 0.0, 1.0, 1.0);
+		else
+			fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
 	}
 
 	// check if old frame's pixel is occluded
-
 	bool occluded = false;
 
-	// simple variant: always assume occlusion if anything moved more than a half-res pixel
+	// simple variant: always assume occlusion if anything moved more than a quarter-res pixel
 	if(OPTION_SET(ASSUME_OCCLUSION))
 	{
 		occluded = any(greaterThan(abs(oldCoords - coords), ivec2(1)));
@@ -285,7 +304,10 @@ void main()
 
 	if(occluded)
 	{
-		fragColor = fetchColorAverage(halfCoords, quadrant);
+		if(OPTION_SET(DEBUG_SHOW_COLORS))
+			fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		else
+			fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
 	}
 

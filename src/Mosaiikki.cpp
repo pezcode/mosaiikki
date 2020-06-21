@@ -63,7 +63,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample);      // core in 3.2
 
-    // ARB extensions is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
+    // ARB extension is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
     bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
     bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
@@ -266,24 +266,24 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     CORRADE_INTERNAL_ASSERT(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Draw) ==
                             GL::Framebuffer::Status::Complete);
 
-    Vector2i halfSize = size / 2;
-    Vector3i arraySize = { halfSize, FRAMES };
+    Vector2i quarterSize = size / 2;
+    Vector3i arraySize = { quarterSize, FRAMES };
 
     colorAttachments = GL::MultisampleTexture2DArray();
     colorAttachments.setStorage(2, GL::TextureFormat::RGBA8, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
-    colorAttachments.setLabel("Color texture array (half-res 2x MSAA)");
+    colorAttachments.setLabel("Color texture array (quarter-res 2x MSAA)");
     depthAttachments = GL::MultisampleTexture2DArray();
     depthAttachments.setStorage(
         2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
-    depthAttachments.setLabel("Depth texture array (half-res 2x MSAA)");
+    depthAttachments.setLabel("Depth texture array (quarter-res 2x MSAA)");
 
     for(size_t i = 0; i < FRAMES; i++)
     {
-        framebuffers[i] = GL::Framebuffer({ { 0, 0 }, halfSize });
+        framebuffers[i] = GL::Framebuffer({ { 0, 0 }, quarterSize });
         framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
         framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
 
-        std::string label = Utility::format("Framebuffer {} (half-res)", i + 1);
+        std::string label = Utility::format("Framebuffer {} (quarter-res)", i + 1);
         framebuffers[i].setLabel(label);
 
         CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) ==
@@ -318,6 +318,7 @@ void Mosaiikki::drawEvent()
 
     // fill velocity buffer
 
+    if(options.reconstruction.createVelocityBuffer)
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Velocity buffer");
 
@@ -326,17 +327,17 @@ void Mosaiikki::drawEvent()
         velocityFramebuffer.clearDepth(1.0f);
 
         // use current frame's jitter
-        // this only matters because we blit the velocity frame buffer to reuse it for the half resolution pass
+        // this only matters because we blit the velocity frame buffer to reuse it for the quarter resolution pass
         // without it, you can use either jittered or unjittered, as long as they match
         velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
 
         camera->draw(velocityDrawables);
     }
 
-    // render scene at half resolution
+    // render scene at quarter resolution
 
     {
-        GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (half-res)");
+        GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (quarter-res)");
 
         GL::Framebuffer& framebuffer = framebuffers[currentFrame];
         framebuffer.bind();
@@ -345,13 +346,13 @@ void Mosaiikki::drawEvent()
         framebuffer.clearColor(0, clearColor);
 
         // copy and reuse velocity depth buffer
-        if(options.reuseVelocityDepth)
+        if(options.reconstruction.createVelocityBuffer && options.reuseVelocityDepth)
         {
             GL::Renderer::setDepthFunction(
                 GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
             GL::Renderer::setColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // disable color writing
 
-            // blit to half size with max filter
+            // blit to quarter res with max filter
             depthBlitShader.bindDepth(velocityDepthAttachment);
             depthBlitShader.draw();
 
@@ -380,9 +381,6 @@ void Mosaiikki::drawEvent()
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
     }
 
-    // undo any jitter
-    camera->setProjectionMatrix(unjitteredProjection);
-
     GL::defaultFramebuffer.bind();
 
     // combine framebuffers
@@ -400,6 +398,9 @@ void Mosaiikki::drawEvent()
             .setOptions(options.reconstruction);
         reconstructionShader.draw();
     }
+
+    // undo any jitter
+    camera->setProjectionMatrix(unjitteredProjection);
 
     // render UI
 
@@ -432,7 +433,7 @@ void Mosaiikki::viewportEvent(ViewportEvent& event)
 
 void Mosaiikki::buildUI()
 {
-    //ImGui::ShowTestWindow();
+    //ImGui::ShowDemoWindow();
 
     const ImVec2 margin = { 5.0f, 5.0f };
     const ImVec2 screen = ImGui::GetIO().DisplaySize;
@@ -445,21 +446,63 @@ void Mosaiikki::buildUI()
 
         ImGui::Separator();
 
-        ImGui::Checkbox("Reuse velocity depth", &options.reuseVelocityDepth);
+        ImGui::Checkbox("Create velocity buffer", &options.reconstruction.createVelocityBuffer);
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip(
+                "Calculate per-pixel velocity vectors instead of reprojecting the pixel position using the depth buffer");
+        {
+            ImGuiDisabledZone zone(!options.reconstruction.createVelocityBuffer);
+            ImGui::Checkbox("Re-use velocity depth", &options.reuseVelocityDepth);
+            if(ImGui::IsItemHovered())
+                ImGui::SetTooltip("Downsample and re-use the velocity pass depth buffer for the quarter-res pass");
+        }
+
         ImGui::Checkbox("Always assume occlusion", &options.reconstruction.assumeOcclusion);
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip(
+                "Always assume an old pixel is occluded in the current frame if the pixel moved by more than a quarter-res pixel.\n"
+                "If this is disabled, a more expensive check against the average surrounding depth value is used.");
 
         ImGui::Separator();
 
-        //float w = ImGui::CalcItemWidth() / 3.0f;
-        //ImGui::SetNextItemWidth(w);
+        float w = ImGui::CalcItemWidth() / 2.0f;
+        ImGui::SetNextItemWidth(w);
 
-        static const char* const debugSamplesOptions[] = { "All", "Even", "Odd" };
+        static const char* const debugSamplesOptions[] = { "Combined", "Even", "Odd (jittered)" };
         ImGui::Combo("Show samples",
                      (int*)&options.reconstruction.debug.showSamples,
                      debugSamplesOptions,
                      Containers::arraySize(debugSamplesOptions));
 
-        ImGui::Checkbox("Show velocity", &options.reconstruction.debug.showVelocity);
+        {
+            ImGuiDisabledZone zone(!options.reconstruction.createVelocityBuffer);
+            ImGui::Checkbox("Show velocity buffer", &options.reconstruction.debug.showVelocity);
+        }
+
+        ImGui::Checkbox("Show debug colors", &options.reconstruction.debug.showColors);
+        if(ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            {
+                static const ImVec4 red = { 1.0f, 0.0f, 0.0f, 1.0f };
+                ImGui::ColorButton("red", red, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+                ImGui::SameLine();
+                ImGui::Text("Old pixel was occluded");
+            }
+            {
+                static const ImVec4 green = { 0.0f, 1.0f, 0.0f, 1.0f };
+                ImGui::ColorButton("green", green, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+                ImGui::SameLine();
+                ImGui::Text("Old pixel position is outside the screen");
+            }
+            {
+                static const ImVec4 blue = { 0.0f, 0.0f, 1.0f, 1.0f };
+                ImGui::ColorButton("blue", blue, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+                ImGui::SameLine();
+                ImGui::Text("Old pixel information is missing (jitter was cancelled out)");
+            }
+            ImGui::EndTooltip();
+        }
 
         ImVec2 size = ImGui::GetWindowSize();
         ImVec2 pos = { screen.x - size.x - margin.x, margin.y };

@@ -2,7 +2,7 @@
 
 struct Options
 {
-    bool reuseVelocityDepth = true;
+    bool reuseVelocityDepth = true; // depends on createVelocityBuffer
 
     struct Scene
     {
@@ -12,19 +12,21 @@ struct Options
 
     struct Reconstruction
     {
+        bool createVelocityBuffer = true;
         bool assumeOcclusion = true;
 
         struct Debug
         {
             enum Samples : int
             {
-                All = 0,
+                Combined = 0,
                 Even,
                 Odd
             };
 
-            Samples showSamples = All;
+            Samples showSamples = Combined;
             bool showVelocity = false;
+            bool showColors = false;
         } debug;
     } reconstruction;
 };
