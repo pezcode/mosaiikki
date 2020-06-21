@@ -49,20 +49,21 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
     GLConfiguration glConf;
-    glConf.setVersion(GL::Version::GL450); // GL::Version::GL320
+    glConf.setVersion(GL::Version::GL320); // GL::Version::GL450 if we want the ARB instead of NV extension
 #ifdef CORRADE_IS_DEBUG_BUILD
     glConf.addFlags(GLConfiguration::Flag::Debug);
 #endif
     create(conf, glConf);
 
-    //setSwapInterval(0); // disable v-sync
+#ifndef CORRADE_IS_DEBUG_BUILD
+    setSwapInterval(0); // disable v-sync
+#endif
 
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample);      // core in 3.2
 
-    // ARB extensions is really only supported by Nvidia (Maxwell and later)
-    // requires OpenGL 4.5
+    // ARB extensions is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
     bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
     bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();

@@ -11,7 +11,6 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
 add_subdirectory(glfw EXCLUDE_FROM_ALL)
 
 # Corrade
@@ -19,7 +18,6 @@ add_subdirectory(glfw EXCLUDE_FROM_ALL)
 set(WITH_MAIN ON CACHE BOOL "" FORCE)
 set(WITH_UTILITY ON CACHE BOOL "" FORCE)
 set(WITH_RC ON CACHE BOOL "" FORCE)
-
 add_subdirectory(corrade EXCLUDE_FROM_ALL)
 
 # Magnum
@@ -41,13 +39,10 @@ add_subdirectory(magnum EXCLUDE_FROM_ALL)
 # Magnum plugins
 
 set(WITH_TINYGLTFIMPORTER ON CACHE BOOL "" FORCE)
-
 add_subdirectory(magnum-plugins EXCLUDE_FROM_ALL)
 
 # Magnum integration
 
 set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
 set(WITH_IMGUI ON CACHE BOOL "" FORCE)
-add_compile_definitions(IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
-
 add_subdirectory(magnum-integration EXCLUDE_FROM_ALL)
