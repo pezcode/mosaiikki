@@ -1,4 +1,4 @@
-#include "Application.h"
+#include "Mosaiikki.h"
 
 #include "Feature.h"
 #include <Magnum/GL/Version.h>
@@ -7,7 +7,6 @@
 #include <Magnum/GL/DebugOutput.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/TextureFormat.h>
-#include <Magnum/GL/RenderbufferFormat.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/MeshData.h>
@@ -18,14 +17,13 @@
 #include <Corrade/Utility/Arguments.h>
 #include <Corrade/Utility/Format.h>
 #include <Corrade/PluginManager/Manager.h>
-#include <cassert>
 
 using namespace Magnum;
 using namespace Corrade;
 using namespace Magnum::Math::Literals;
 using namespace Feature;
 
-Application::Application(const Arguments& arguments) :
+Mosaiikki::Mosaiikki(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
     logFile(std::string(NAME) + ".log", std::fstream::out | std::fstream::trunc),
     _debug(nullptr),
@@ -70,7 +68,7 @@ Application::Application(const Arguments& arguments) :
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
     // TODO Intel? Can't find a supported GL extension although D3D12 support for it exists
 
-    CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found");
+    CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found", );
 
     // Debug output
 
@@ -228,13 +226,12 @@ Application::Application(const Arguments& arguments) :
     depthBlitShader.setLabel("Depth blit shader");
 
     reconstructionShader = ReconstructionShader();
-    reconstructionShader.setDebugShowSamples(ReconstructionShader::DebugSamples::Disabled);
     reconstructionShader.setLabel("Checkerboard resolve shader");
 
     timeline.start();
 }
 
-void Application::updateProjectionMatrix(Magnum::SceneGraph::Camera3D& cam)
+void Mosaiikki::updateProjectionMatrix(Magnum::SceneGraph::Camera3D& cam)
 {
     constexpr float near = 0.5f;
     constexpr float far = 50.0f;
@@ -247,7 +244,7 @@ void Application::updateProjectionMatrix(Magnum::SceneGraph::Camera3D& cam)
     cam.setProjectionMatrix(Matrix4::perspectiveProjection(hFOV, aspectRatio, near, far));
 }
 
-void Application::resizeFramebuffers(Vector2i size)
+void Mosaiikki::resizeFramebuffers(Vector2i size)
 {
     // make texture dimensions multiple of two
     size += size % 2;
@@ -263,8 +260,10 @@ void Application::resizeFramebuffers(Vector2i size)
     velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0);
     velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0);
 
-    assert(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
-    assert(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
+    CORRADE_INTERNAL_ASSERT(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Read) ==
+                            GL::Framebuffer::Status::Complete);
+    CORRADE_INTERNAL_ASSERT(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Draw) ==
+                            GL::Framebuffer::Status::Complete);
 
     Vector2i halfSize = size / 2;
     Vector3i arraySize = { halfSize, FRAMES };
@@ -286,12 +285,14 @@ void Application::resizeFramebuffers(Vector2i size)
         std::string label = Utility::format("Framebuffer {} (half-res)", i + 1);
         framebuffers[i].setLabel(label);
 
-        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) == GL::Framebuffer::Status::Complete);
-        assert(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) == GL::Framebuffer::Status::Complete);
+        CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) ==
+                                GL::Framebuffer::Status::Complete);
+        CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) ==
+                                GL::Framebuffer::Status::Complete);
     }
 }
 
-void Application::drawEvent()
+void Mosaiikki::drawEvent()
 {
     profiler.beginFrame();
 
@@ -342,8 +343,8 @@ void Application::drawEvent()
         const Color3 clearColor = 0x111111_rgbf;
         framebuffer.clearColor(0, clearColor);
 
-        // copy and reuse velocity buffer
-        if(true)
+        // copy and reuse velocity depth buffer
+        if(options.reuseVelocityDepth)
         {
             GL::Renderer::setDepthFunction(
                 GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
@@ -364,6 +365,12 @@ void Application::drawEvent()
         // run fragment shader for each sample
         GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
         GL::Renderer::setMinSampleShading(1.0f);
+
+        // TODO
+        // force interpolation to each sample position, not the fragment center
+        // https://www.khronos.org/opengl/wiki/Type_Qualifier_(GLSL)
+        // does sample shading already do this?
+        // this requires us to roll our own (Phong) shader
 
         // jitter camera if necessary
         camera->setProjectionMatrix(matrices[currentFrame]);
@@ -388,7 +395,8 @@ void Application::drawEvent()
             .bindDepth(depthAttachments)
             .bindVelocity(velocityAttachment)
             .setCurrentFrame(currentFrame)
-            .setCameraInfo(*camera);
+            .setCameraInfo(*camera)
+            .setOptions(options.reconstruction);
         reconstructionShader.draw();
     }
 
@@ -413,7 +421,7 @@ void Application::drawEvent()
     redraw();
 }
 
-void Application::viewportEvent(ViewportEvent& event)
+void Mosaiikki::viewportEvent(ViewportEvent& event)
 {
     resizeFramebuffers(event.framebufferSize());
     camera->setViewport(event.framebufferSize());
@@ -421,14 +429,8 @@ void Application::viewportEvent(ViewportEvent& event)
     ImGuiApplication::viewportEvent(event);
 }
 
-void Application::buildUI()
+void Mosaiikki::buildUI()
 {
-    static bool animatedObjects = false;
-    static bool animatedCamera = false;
-    static bool debugShowSamples = false;
-    static int debugSamples = 0;
-    static bool debugShowVelocity = false;
-
     //ImGui::ShowTestWindow();
 
     const ImVec2 margin = { 5.0f, 5.0f };
@@ -437,20 +439,26 @@ void Application::buildUI()
     ImGui::Begin(
         "Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     {
-        ImGui::Checkbox("Animated objects", &animatedObjects);
-        ImGui::Checkbox("Animated camera", &animatedCamera);
+        ImGui::Checkbox("Animated objects", &options.scene.animatedObjects);
+        ImGui::Checkbox("Animated camera", &options.scene.animatedCamera);
 
         ImGui::Separator();
 
-        ImGui::Checkbox("Show samples", &debugShowSamples);
-        ImGui::SameLine();
-        float w = ImGui::CalcItemWidth() / 3.0f;
-        ImGui::SetNextItemWidth(w);
+        ImGui::Checkbox("Reuse velocity depth", &options.reuseVelocityDepth);
+        ImGui::Checkbox("Always assume occlusion", &options.reconstruction.assumeOcclusion);
 
-        const char* const debugSamplesOptions[] = { "Even", "Odd" };
-        ImGui::Combo("", &debugSamples, debugSamplesOptions, Containers::arraySize(debugSamplesOptions));
+        ImGui::Separator();
 
-        ImGui::Checkbox("Show velocity", &debugShowVelocity);
+        //float w = ImGui::CalcItemWidth() / 3.0f;
+        //ImGui::SetNextItemWidth(w);
+
+        static const char* const debugSamplesOptions[] = { "All", "Even", "Odd" };
+        ImGui::Combo("Show samples",
+                     (int*)&options.reconstruction.debug.showSamples,
+                     debugSamplesOptions,
+                     Containers::arraySize(debugSamplesOptions));
+
+        ImGui::Checkbox("Show velocity", &options.reconstruction.debug.showVelocity);
 
         ImVec2 size = ImGui::GetWindowSize();
         ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
@@ -469,23 +477,19 @@ void Application::buildUI()
     }
     ImGui::End();
 
-    reconstructionShader.setDebugShowSamples(debugShowSamples ? (ReconstructionShader::DebugSamples)(debugSamples + 1)
-                                                              : ReconstructionShader::DebugSamples::Disabled);
-    reconstructionShader.setDebugShowVelocity(debugShowVelocity);
-
     for(size_t i = 0; i < meshAnimables.size(); i++)
     {
-        meshAnimables[i].setState(animatedObjects ? SceneGraph::AnimationState::Running
-                                                  : SceneGraph::AnimationState::Paused);
+        meshAnimables[i].setState(options.scene.animatedObjects ? SceneGraph::AnimationState::Running
+                                                                : SceneGraph::AnimationState::Paused);
     }
 
     // TODO rotation instead of translation animation
     if(cameraAnimables.size() > 0)
-        cameraAnimables[0].setState(animatedCamera ? SceneGraph::AnimationState::Running
-                                                   : SceneGraph::AnimationState::Paused);
+        cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
+                                                                 : SceneGraph::AnimationState::Paused);
 }
 
-bool Application::loadScene(const char* file, Object3D& parent)
+bool Mosaiikki::loadScene(const char* file, Object3D& parent)
 {
     // TODO clear
 
@@ -535,7 +539,7 @@ bool Application::loadScene(const char* file, Object3D& parent)
     return true;
 }
 
-void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objectId, Object3D& parent)
+void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectId, Object3D& parent)
 {
     // meshes are compiled and accessible at this point
     // TODO materials
@@ -561,9 +565,9 @@ void Application::addObject(Trade::AbstractImporter& importer, UnsignedInt objec
     }
 }
 
-Application::Object3D& Application::duplicateObject(Object3D& object, Object3D& parent)
+Mosaiikki::Object3D& Mosaiikki::duplicateObject(Object3D& object, Object3D& parent)
 {
-    assert(!object.isScene());
+    CORRADE_INTERNAL_ASSERT(!object.isScene());
 
     Object3D& duplicate = parent.addChild<Object3D>();
     duplicate.setTransformation(object.transformation());

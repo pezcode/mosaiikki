@@ -1,18 +1,19 @@
 set(SOURCES
 	main.cpp
-	Application.h
-	Application.cpp
+	Mosaiikki.h
+	Mosaiikki.cpp
 	ImGuiApplication.h
 	ImGuiApplication.cpp
-	Feature.h
 	VelocityDrawable.h
 	ColoredDrawable.h
 	SingleAxisTranslationAnimable.h
+	Feature.h
+	Options.h
 	Shaders/ReconstructionShader.h
 	Shaders/ReconstructionShader.cpp
 	Shaders/VelocityShader.h
 	Shaders/VelocityShader.cpp
-    Shaders/DepthBlitShader.h
+	Shaders/DepthBlitShader.h
 	Shaders/DepthBlitShader.cpp
 )
 
@@ -21,7 +22,7 @@ set(SHADERS
 	Shaders/ReconstructionShader.frag
 	Shaders/VelocityShader.vert
 	Shaders/VelocityShader.frag
-    Shaders/DepthBlitShader.vert
+	Shaders/DepthBlitShader.vert
 	Shaders/DepthBlitShader.frag
 )
 

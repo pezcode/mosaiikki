@@ -30,7 +30,7 @@ DepthBlitShader::DepthBlitShader() :
 
     // possibly parallel compilation
     bool compiled = GL::Shader::compile({ vert, frag });
-    CORRADE_ASSERT(compiled, "Failed to compile DepthBlitShader");
+    CORRADE_ASSERT(compiled, "Failed to compile DepthBlitShader", );
     attachShaders({ vert, frag });
     link();
 

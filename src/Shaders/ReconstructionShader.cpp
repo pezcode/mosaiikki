@@ -20,8 +20,7 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
     viewportUniform(-1),
     prevViewProjectionUniform(-1),
     invViewProjectionUniform(-1),
-    debugShowSamplesUniform(-1),
-    debugShowVelocityUniform(-1),
+    optionsUniform(-1),
     viewport({ 0, 0 }),
     projection(Math::IdentityInit),
     prevViewProjection(Math::IdentityInit)
@@ -45,7 +44,7 @@ ReconstructionShader::ReconstructionShader() :
 
     // possibly parallel compilation
     bool compiled = GL::Shader::compile({ vert, frag });
-    CORRADE_ASSERT(compiled, "Failed to compile ReconstructionShader");
+    CORRADE_ASSERT(compiled, "Failed to compile ReconstructionShader", );
     attachShaders({ vert, frag });
     link();
 
@@ -57,8 +56,7 @@ ReconstructionShader::ReconstructionShader() :
     viewportUniform = uniformLocation("viewport");
     prevViewProjectionUniform = uniformLocation("prevViewProjection");
     invViewProjectionUniform = uniformLocation("invViewProjection");
-    debugShowSamplesUniform = uniformLocation("debugShowSamples");
-    debugShowVelocityUniform = uniformLocation("debugShowVelocity");
+    optionsUniform = uniformLocation("options");
 }
 
 ReconstructionShader& ReconstructionShader::bindColor(GL::MultisampleTexture2DArray& attachment)
@@ -108,15 +106,19 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
     return *this;
 }
 
-ReconstructionShader& ReconstructionShader::setDebugShowSamples(DebugSamples samples)
+ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruction& options)
 {
-    setUniform(debugShowSamplesUniform, samples);
-    return *this;
-}
+    GLint options_bitset = 0;
+    if(options.assumeOcclusion)
+        options_bitset |= (1 << 0);
+    if(options.debug.showSamples != Options::Reconstruction::Debug::Samples::All)
+        options_bitset |= (1 << 1);
+    if(options.debug.showSamples == Options::Reconstruction::Debug::Samples::Even)
+        options_bitset |= (1 << 2);
+    if(options.debug.showVelocity)
+        options_bitset |= (1 << 3);
 
-ReconstructionShader& ReconstructionShader::setDebugShowVelocity(bool show)
-{
-    setUniform(debugShowVelocityUniform, show);
+    setUniform(optionsUniform, options_bitset);
     return *this;
 }
 

@@ -16,10 +16,17 @@ uniform bool cameraParametersChanged;
 uniform ivec2 viewport;
 uniform mat4 prevViewProjection;
 uniform mat4 invViewProjection;
-uniform vec4 depthTransform;
+//uniform vec4 depthTransform;
 
-uniform int debugShowSamples = 0;
-uniform bool debugShowVelocity = false;
+// this should match the bit flags in ReconstructionShader::setOptions
+#define ASSUME_OCCLUSION        (1 << 0)
+#define DEBUG_SHOW_SAMPLES      (1 << 1)
+#define DEBUG_SHOW_EVEN_SAMPLES (1 << 2)
+#define DEBUG_SHOW_VELOCITY     (1 << 3)
+
+#define OPTION_SET(OPT) ((options & OPT) != 0)
+
+uniform int options = 0;
 
 layout(location = 0) out vec4 fragColor;
 
@@ -99,7 +106,7 @@ vec4 tonemap(vec4 color)
 }
 
 // undo tonemap operation
-// averaging color values is only correct in linear space
+// averaging color values is only correct in linear RGB space
 vec4 undoTonemap(vec4 color)
 {
 	return color;
@@ -109,7 +116,8 @@ vec4 undoTonemap(vec4 color)
 // averaging depth values is only correct in linear view space
 float screenToViewDepth(float depth)
 {
-	return (depth * depthTransform.x + depthTransform.y) / (depth * depthTransform.z + depthTransform.w);
+	return depth;
+	//return (depth * depthTransform.x + depthTransform.y) / (depth * depthTransform.z + depthTransform.w);
 }
 
 vec4 fetchColorAverage(ivec2 coords, int quadrant)
@@ -154,10 +162,10 @@ float fetchDepthAverage(ivec2 coords, int quadrant)
 	);
 
 	float result =
-		fetchQuadrant(depth, coords + offsets[UP   ], quadrants[UP   ]).x +
-		fetchQuadrant(depth, coords + offsets[DOWN ], quadrants[DOWN ]).x +
-		fetchQuadrant(depth, coords + offsets[LEFT ], quadrants[LEFT ]).x +
-		fetchQuadrant(depth, coords + offsets[RIGHT], quadrants[RIGHT]).x;
+		screenToViewDepth(fetchQuadrant(depth, coords + offsets[UP   ], quadrants[UP   ]).x) +
+		screenToViewDepth(fetchQuadrant(depth, coords + offsets[DOWN ], quadrants[DOWN ]).x) +
+		screenToViewDepth(fetchQuadrant(depth, coords + offsets[LEFT ], quadrants[LEFT ]).x) +
+		screenToViewDepth(fetchQuadrant(depth, coords + offsets[RIGHT], quadrants[RIGHT]).x);
 	return result * 0.25;
 }
 
@@ -175,6 +183,8 @@ ivec2 reprojectPixel(ivec2 coords, float depth)
 	return coords;
 }
 
+// TODO turn this (and depth blit) into a compute shader
+
 void main()
 {
 	ivec2 coords = ivec2(floor(gl_FragCoord.xy));
@@ -189,7 +199,7 @@ void main()
 	ivec2 currentQuadrants = FRAME_QUADRANTS[currentFrame];
 
 	// debug output: velocity buffer
-	if(debugShowVelocity)
+	if(OPTION_SET(DEBUG_SHOW_VELOCITY))
 	{
 		vec2 vel = texelFetch(velocity, coords, 0).xy;
 		fragColor = vec4(abs(vel * 255.0), 0.0, 1.0);
@@ -197,9 +207,10 @@ void main()
 	}
 
 	// debug output: checkered frame
-	if(debugShowSamples != 0)
+	if(OPTION_SET(DEBUG_SHOW_SAMPLES))
 	{
-		ivec2 boardQuadrants = FRAME_QUADRANTS[debugShowSamples - 1];
+		int sampleFrame = OPTION_SET(DEBUG_SHOW_EVEN_SAMPLES) ? 0 : 1;
+		ivec2 boardQuadrants = FRAME_QUADRANTS[sampleFrame];
 		if(any(equal(vec2(quadrant), boardQuadrants)))
 			fragColor = fetchQuadrant(color, halfCoords, quadrant);
 		else
@@ -255,14 +266,20 @@ void main()
 
 	// check if old frame's pixel is occluded
 
+	bool occluded = false;
+
 	// simple variant: always assume occlusion if anything moved more than a half-res pixel
-	bool occluded = any(greaterThan(abs(oldCoords - coords), ivec2(1)));
-	// more correct heuristic: check depth against current depth average
-	if(false)
+	if(OPTION_SET(ASSUME_OCCLUSION))
+	{
+		occluded = any(greaterThan(abs(oldCoords - coords), ivec2(1)));
+	}
+	else // more correct heuristic: check depth against current depth average
 	{
 		const float DEPTH_TOLERANCE = 0.01;
 		float currentDepthAverage = fetchDepthAverage(halfCoords, quadrant);
 		float oldDepth = fetchQuadrant(depth, oldHalfCoords, oldQuadrant).x;
+		// fetchDepthAverage returns average of linear view space depth
+		oldDepth = screenToViewDepth(oldDepth);
 		occluded = abs(currentDepthAverage - oldDepth) >= DEPTH_TOLERANCE;
 	}
 

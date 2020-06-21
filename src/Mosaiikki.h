@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Options.h"
 #include "ImGuiApplication.h"
 #include "VelocityDrawable.h"
 #include "ColoredDrawable.h"
@@ -36,10 +37,10 @@ class AbstractImporter;
 }
 } // namespace Magnum
 
-class Application : public ImGuiApplication
+class Mosaiikki : public ImGuiApplication
 {
 public:
-    explicit Application(const Arguments& arguments);
+    explicit Mosaiikki(const Arguments& arguments);
 
     static constexpr char* NAME = "mosaiikki";
 
@@ -116,4 +117,6 @@ private:
 
     DepthBlitShader depthBlitShader;
     ReconstructionShader reconstructionShader;
+
+    Options options;
 };

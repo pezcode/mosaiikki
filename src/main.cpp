@@ -1,3 +1,3 @@
-#include "Application.h"
+#include "Mosaiikki.h"
 
-MAGNUM_APPLICATION_MAIN(Application)
+MAGNUM_APPLICATION_MAIN(Mosaiikki)
