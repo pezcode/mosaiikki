@@ -251,8 +251,9 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     // make texture dimensions multiple of two
     size += size % 2;
 
+    // xy = velocity, z = mask for dynamic objects
     velocityAttachment = GL::Texture2D();
-    velocityAttachment.setStorage(1, GL::TextureFormat::RG16F, size);
+    velocityAttachment.setStorage(1, GL::TextureFormat::RGBA16F, size);
     velocityAttachment.setLabel("Velocity texture");
     velocityDepthAttachment = GL::Texture2D();
     velocityDepthAttachment.setStorage(1, GL::TextureFormat::DepthComponent24, size);

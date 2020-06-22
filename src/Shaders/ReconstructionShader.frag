@@ -245,14 +245,23 @@ void main()
 
 	// find pixel position in previous frame
 	ivec2 oldCoords = ivec2(0, 0);
+	bool velocityFromDepth = true;
 
 	// for fully general results, sample from a velocity buffer
 	if(OPTION_SET(USE_VELOCITY_BUFFER))
 	{
-		vec2 velocity = texelFetch(velocity, coords, 0).xy * viewport;
-		oldCoords = ivec2(floor(gl_FragCoord.xy - velocity));
+		vec3 velocity = texelFetch(velocity, coords, 0).xyz;
+		// z is a mask for dynamic objects
+		if(velocity.z > 0.0)
+		{
+			vec2 offset = velocity.xy * viewport;
+			oldCoords = ivec2(floor(gl_FragCoord.xy - offset));
+			velocityFromDepth = false;
+		}
 	}
-	else // if we only have a moving camera, we can reproject using the camera transformation
+
+	// if we're not using a velocity buffer or the object is static, reproject using the camera transformation
+	if(velocityFromDepth)
 	{
 		float z = fetchQuadrant(depth, halfCoords, quadrant).x;
 		oldCoords = reprojectPixel(coords, z);
