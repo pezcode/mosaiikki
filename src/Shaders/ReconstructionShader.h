@@ -18,7 +18,7 @@ public:
     ReconstructionShader& bindVelocity(Magnum::GL::Texture2D& attachment);
     ReconstructionShader& setCurrentFrame(Magnum::Int currentFrame);
     // camera should be const, but camera.cameraMatrix() is not :(
-    ReconstructionShader& setCameraInfo(Magnum::SceneGraph::Camera3D& camera);
+    ReconstructionShader& setCameraInfo(Magnum::SceneGraph::Camera3D& camera, float nearPlane, float farPlane);
     ReconstructionShader& setOptions(const Options::Reconstruction& options);
 
     // normally you call mesh.draw(shader)
@@ -49,9 +49,11 @@ private:
         Magnum::Matrix4 prevViewProjection = Magnum::Matrix4(Magnum::Math::IdentityInit);
         Magnum::Matrix4 invViewProjection = Magnum::Matrix4(Magnum::Math::IdentityInit);
         Magnum::Vector2i viewport = { 0, 0 };
+        float near = 0.01f;
+        float far = 50.0f;
         GLint currentFrame = 0;
         GLuint cameraParametersChanged = false;
-        GLint options = 0;
+        GLint flags = 0;
         GLfloat depthTolerance = 0.01f;
     };
     OptionsBufferData optionsData;

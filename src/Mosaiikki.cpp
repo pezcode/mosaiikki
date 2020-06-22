@@ -235,15 +235,13 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
 void Mosaiikki::updateProjectionMatrix(Magnum::SceneGraph::Camera3D& cam)
 {
-    constexpr float near = 0.5f;
-    constexpr float far = 50.0f;
     //constexpr Rad hFOV_4by3 = 90.0_degf;
     //Rad vFOV = Math::atan(Math::tan(hFOV_4by3 * 0.5f) / (4.0f / 3.0f)) * 2.0f;
     constexpr Rad vFOV = 73.74_degf;
 
     float aspectRatio = Vector2(cam.viewport()).aspectRatio();
     Rad hFOV = Math::atan(Math::tan(vFOV * 0.5f) * aspectRatio) * 2.0f;
-    cam.setProjectionMatrix(Matrix4::perspectiveProjection(hFOV, aspectRatio, near, far));
+    cam.setProjectionMatrix(Matrix4::perspectiveProjection(hFOV, aspectRatio, cameraNear, cameraFar));
 }
 
 void Mosaiikki::resizeFramebuffers(Vector2i size)
@@ -399,7 +397,7 @@ void Mosaiikki::drawEvent()
             .bindDepth(depthAttachments)
             .bindVelocity(velocityAttachment)
             .setCurrentFrame(currentFrame)
-            .setCameraInfo(*camera)
+            .setCameraInfo(*camera, cameraNear, cameraFar)
             .setOptions(options.reconstruction);
         reconstructionShader.draw();
     }

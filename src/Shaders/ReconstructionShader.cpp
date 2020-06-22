@@ -80,7 +80,7 @@ ReconstructionShader& ReconstructionShader::setCurrentFrame(Int currentFrame)
     return *this;
 }
 
-ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& camera)
+ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& camera, float nearPlane, float farPlane)
 {
     bool projectionChanged = (projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
     optionsData.cameraParametersChanged = viewport != camera.viewport() || projectionChanged;
@@ -88,6 +88,8 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
 
     viewport = camera.viewport();
     optionsData.viewport = viewport;
+    optionsData.near = nearPlane;
+    optionsData.far = farPlane;
 
     const Matrix4 viewProjection = projection * camera.cameraMatrix();
     optionsData.prevViewProjection = prevViewProjection;
@@ -99,21 +101,21 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
 
 ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruction& options)
 {
-    GLint options_bitset = 0;
+    GLint flags_bitset = 0;
     if(options.createVelocityBuffer)
-        options_bitset |= (1 << 0);
+        flags_bitset |= (1 << 0);
     if(options.assumeOcclusion)
-        options_bitset |= (1 << 1);
+        flags_bitset |= (1 << 1);
     if(options.debug.showSamples != Options::Reconstruction::Debug::Samples::Combined)
-        options_bitset |= (1 << 2);
+        flags_bitset |= (1 << 2);
     if(options.debug.showSamples == Options::Reconstruction::Debug::Samples::Even)
-        options_bitset |= (1 << 3);
+        flags_bitset |= (1 << 3);
     if(options.debug.showVelocity)
-        options_bitset |= (1 << 4);
+        flags_bitset |= (1 << 4);
     if(options.debug.showColors)
-        options_bitset |= (1 << 5);
+        flags_bitset |= (1 << 5);
 
-    optionsData.options = options_bitset;
+    optionsData.flags = flags_bitset;
     optionsData.depthTolerance = options.depthTolerance;
     return *this;
 }

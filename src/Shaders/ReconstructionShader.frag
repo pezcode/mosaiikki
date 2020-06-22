@@ -18,9 +18,11 @@ layout(std140) uniform OptionsBlock
 	mat4 prevViewProjection;
 	mat4 invViewProjection;
 	ivec2 viewport;
+	float near;
+	float far;
 	int currentFrame; // is the current frame even or odd? (-> index into color and depth array layers)
 	bool cameraParametersChanged;
-	int options;
+	int flags;
 	float depthTolerance;
 };
 
@@ -33,7 +35,7 @@ layout(std140) uniform OptionsBlock
 #define DEBUG_SHOW_VELOCITY     (1 << 4)
 #define DEBUG_SHOW_COLORS       (1 << 5)
 
-#define OPTION_SET(OPT) ((options & OPT) != 0)
+#define OPTION_SET(OPT) ((flags & OPT) != 0)
 
 layout(location = 0) out vec4 fragColor;
 
@@ -129,6 +131,8 @@ vec4 undoTonemap(vec4 color)
 
 vec4 fetchColorAverage(ivec2 coords, int quadrant)
 {
+	// TODO
+
 	const ivec2 offsets[4] = ivec2[4](
 		ivec2(0, 0),
 		ivec2(0, 0),
@@ -152,16 +156,21 @@ vec4 fetchColorAverage(ivec2 coords, int quadrant)
 }
 
 // undo depth projection
-// averaging depth values is only correct in linear view space
+// assumes a projection transformation produced by Matrix4::perspectiveProjection with finite far plane
+// solve for view space z: (z(n+f) + 2nf)/(-z(n-f)) = 2w-1
+// w = window space depth [0;1]
+// 2w-1 = NDC space depth [-1;1]
 float screenToViewDepth(float depth)
 {
-	return depth;
-	//return (depth * depthTransform.x + depthTransform.y) / (depth * depthTransform.z + depthTransform.w);
+	return (far * near) / ((far * depth) - far - (near * depth));
 }
 
 // returns averaged depth in view space
+// depth buffer values are non-linear, averaging those produces incorrect results
 float fetchDepthAverage(ivec2 coords, int quadrant)
 {
+	// TODO
+
 	const ivec2 offsets[4] = ivec2[4](
 		ivec2(0, 0),
 		ivec2(0, 0),
@@ -290,7 +299,7 @@ void main()
 	ivec2 oldQuadrants = FRAME_QUADRANTS[1 - currentFrame];
 	if(!any(equal(ivec2(oldQuadrant), oldQuadrants)))
 	{
-		// it's not, movement cancelled jitter so there's no shading information
+		// nope, movement cancelled the jitter so there's no shading information
 		// -> interpolate
 		if(OPTION_SET(DEBUG_SHOW_COLORS))
 			fragColor = vec4(0.0, 0.0, 1.0, 1.0);
@@ -299,21 +308,23 @@ void main()
 		return;
 	}
 
-	// check if old frame's pixel is occluded
+	// check if old frame's pixel is occluded after movement
 	bool occluded = false;
-
-	// simple variant: always assume occlusion if anything moved more than a quarter-res pixel
-	if(OPTION_SET(ASSUME_OCCLUSION))
+	if(any(greaterThan(abs(oldHalfCoords - halfCoords), ivec2(0)))) // old pos was in a different quarter-res pixel
 	{
-		occluded = any(greaterThan(abs(oldCoords - coords), ivec2(1)));
-	}
-	else // more correct heuristic: check depth against current depth average
-	{
-		float currentDepthAverage = fetchDepthAverage(halfCoords, quadrant);
-		float oldDepth = fetchQuadrant(depth, oldHalfCoords, oldQuadrant).x;
-		// fetchDepthAverage returns average of linear view space depth
-		oldDepth = screenToViewDepth(oldDepth);
-		occluded = abs(currentDepthAverage - oldDepth) >= depthTolerance;
+		// simple variant: always assume occlusion
+		if(OPTION_SET(ASSUME_OCCLUSION))
+		{
+			occluded = true;
+		}
+		else // more correct heuristic: check depth against current depth average
+		{
+			float currentDepthAverage = fetchDepthAverage(halfCoords, quadrant);
+			float oldDepth = fetchQuadrant(depth, oldHalfCoords, oldQuadrant).x;
+			// fetchDepthAverage returns average of linear view space depth
+			oldDepth = screenToViewDepth(oldDepth);
+			occluded = abs(currentDepthAverage - oldDepth) >= depthTolerance;
+		}
 	}
 
 	if(occluded)

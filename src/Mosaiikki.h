@@ -90,6 +90,9 @@ private:
 
     // scene
 
+    static constexpr float cameraNear = 0.5f;
+    static constexpr float cameraFar = 50.0f;
+
     Magnum::Timeline timeline;
     Magnum::SceneGraph::AnimableGroup3D meshAnimables;
     Magnum::SceneGraph::AnimableGroup3D cameraAnimables;
