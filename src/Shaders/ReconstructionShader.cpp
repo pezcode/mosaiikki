@@ -88,8 +88,7 @@ ReconstructionShader& ReconstructionShader::setCurrentFrame(Int currentFrame)
 
 ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& camera)
 {
-    // this check will always fail unless we somehow manually account for the jitter
-    bool projectionChanged = false; //(projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
+    bool projectionChanged = (projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
     bool cameraParametersChanged = viewport != camera.viewport() || projectionChanged;
     setUniform(cameraParametersChangedUniform, cameraParametersChanged);
     projection = camera.projectionMatrix();
@@ -97,7 +96,7 @@ ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& 
     viewport = camera.viewport();
     setUniform(viewportUniform, viewport);
 
-    const Matrix4 viewProjection = camera.projectionMatrix() * camera.cameraMatrix();
+    const Matrix4 viewProjection = projection * camera.cameraMatrix();
     setUniform(prevViewProjectionUniform, prevViewProjection);
     setUniform(invViewProjectionUniform, viewProjection.inverted());
     prevViewProjection = viewProjection;

@@ -10,7 +10,7 @@ uniform sampler2DMSArray depth;
 
 uniform sampler2D velocity;
 
-uniform int currentFrame;
+uniform int currentFrame; // is the current frame even or odd? (-> index into color and depth array layers)
 
 uniform bool cameraParametersChanged;
 uniform ivec2 viewport;
@@ -68,9 +68,16 @@ layout(location = 0) out vec4 fragColor;
 // | 1 |   |
 // +---+---+
 
-// the odd frames are jittered half a pixel to the right
-// so the sample positions overlap into the even frames
-// to get e.g. quadrant 1, 
+// the odd frames are jittered half a pixel (= one full-res pixel) to the right
+// so the sample positions overlap:
+
+// +---+---+---
+// |   | E | O 
+// +---+---+---
+// | E | O |   
+// +---+---+
+
+// e.g. quadrant 1 = sample 1 from the odd frame's pixel to the right
 
 int calculateQuadrant(ivec2 pixelCoords)
 {
@@ -82,7 +89,7 @@ vec4 fetchQuadrant(sampler2DMSArray tex, ivec2 coords, int quadrant)
 	switch(quadrant)
 	{
 		default:
-		case 0:
+		case 0: // (x, y, even/odd), sample
 			return texelFetch(tex, ivec3(coords, 0), 1);
 		case 1:
 			return texelFetch(tex, ivec3(coords + ivec2(1, 0), 1), 1);
@@ -195,11 +202,9 @@ void main()
 	int quadrant = calculateQuadrant(coords);
 
 	const ivec2 FRAME_QUADRANTS[2] = ivec2[](
-		ivec2(3, 0),
-		ivec2(2, 1)
+		ivec2(3, 0), // even
+		ivec2(2, 1) // odd
 	);
-
-	ivec2 currentQuadrants = FRAME_QUADRANTS[currentFrame];
 
 	// debug output: velocity buffer
 	if(OPTION_SET(DEBUG_SHOW_VELOCITY))
@@ -220,7 +225,9 @@ void main()
 			fragColor = vec4(0.0, 0.0, 0.0, 0.0);
 		return;
 	}
-	
+
+	ivec2 currentQuadrants = FRAME_QUADRANTS[currentFrame];
+
 	// was this pixel rendered with the most recent frame?
 	// -> just use it
 	if(any(equal(ivec2(quadrant), currentQuadrants)))
@@ -242,19 +249,13 @@ void main()
 	// for fully general results, sample from a velocity buffer
 	if(OPTION_SET(USE_VELOCITY_BUFFER))
 	{
-		vec2 diff = texelFetch(velocity, coords, 0).xy * viewport;
-		oldCoords = ivec2(floor(gl_FragCoord.xy - diff));
+		vec2 velocity = texelFetch(velocity, coords, 0).xy * viewport;
+		oldCoords = ivec2(floor(gl_FragCoord.xy - velocity));
 	}
 	else // if we only have a moving camera, we can reproject using the camera transformation
 	{
 		float z = fetchQuadrant(depth, halfCoords, quadrant).x;
 		oldCoords = reprojectPixel(coords, z);
-	}
-
-	if(any(notEqual(oldCoords, coords)))
-	{
-		fragColor = vec4(1.0, 0.0, 0.0, 1.0);
-		return;
 	}
 
 	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))

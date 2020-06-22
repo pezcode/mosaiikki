@@ -34,7 +34,7 @@ if(MSVC)
 	list(APPEND SOURCES windows-dpi-awareness.manifest)
 endif()
 
-# Enable compiler warnings
+# enable compiler warnings
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
 find_package(Corrade REQUIRED Main Utility)
@@ -72,13 +72,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	MagnumPlugins::TinyGltfImporter
 	MagnumIntegration::ImGui
 )
-
-if(MSVC)
-	# hide console window
-	# target_link_options requires CMake 3.13+
-	# (is there an easy alternative for earlier versions?)
-	#target_link_options(${CMAKE_PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS" "/ENTRY:mainCRTStartup")
-endif()
 
 # copy resources folder
 

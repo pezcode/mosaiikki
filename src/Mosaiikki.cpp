@@ -49,7 +49,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
     GLConfiguration glConf;
-    glConf.setVersion(GL::Version::GL320); // GL::Version::GL450 if we want the ARB instead of NV extension
 #ifdef CORRADE_IS_DEBUG_BUILD
     glConf.addFlags(GLConfiguration::Flag::Debug);
 #endif
@@ -58,6 +57,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 #ifndef CORRADE_IS_DEBUG_BUILD
     setSwapInterval(0); // disable v-sync
 #endif
+
+    MAGNUM_ASSERT_GL_VERSION_SUPPORTED(GL::Version::GL320);
 
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
@@ -100,7 +101,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     parser.addOption("mesh", "resources/models/Suzanne.glb")
         .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
-        .setHelp("font", "font to load")
+        .setHelp("font", "GUI font to load")
         .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
         .setGlobalHelp("Checkered rendering experiment.");
     parser.parse(arguments.argc, arguments.argv);
@@ -254,7 +255,7 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     velocityAttachment.setStorage(1, GL::TextureFormat::RG16F, size);
     velocityAttachment.setLabel("Velocity texture");
     velocityDepthAttachment = GL::Texture2D();
-    velocityDepthAttachment.setStorage(1, GL::TextureFormat::DepthComponent32, size);
+    velocityDepthAttachment.setStorage(1, GL::TextureFormat::DepthComponent24, size);
     velocityDepthAttachment.setLabel("Velocity depth texture");
 
     velocityFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
@@ -266,15 +267,15 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     CORRADE_INTERNAL_ASSERT(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Draw) ==
                             GL::Framebuffer::Status::Complete);
 
-    Vector2i quarterSize = size / 2;
-    Vector3i arraySize = { quarterSize, FRAMES };
+    const Vector2i quarterSize = size / 2;
+    const Vector3i arraySize = { quarterSize, FRAMES };
 
     colorAttachments = GL::MultisampleTexture2DArray();
     colorAttachments.setStorage(2, GL::TextureFormat::RGBA8, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
     colorAttachments.setLabel("Color texture array (quarter-res 2x MSAA)");
     depthAttachments = GL::MultisampleTexture2DArray();
     depthAttachments.setStorage(
-        2, GL::TextureFormat::DepthComponent32, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
+        2, GL::TextureFormat::DepthComponent24, arraySize, GL::MultisampleTextureSampleLocations::Fixed);
     depthAttachments.setLabel("Depth texture array (quarter-res 2x MSAA)");
 
     for(size_t i = 0; i < FRAMES; i++)
@@ -310,9 +311,9 @@ void Mosaiikki::drawEvent()
 
     static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
     Array<FRAMES, Matrix4> matrices;
-    // jitter viewport half a pixel to the right = one pixel in the combined framebuffer
-    // width of NDC divided by pixel count
-    const float offset = (2.0f / (camera->viewport().x() / 2.0f)) / 2.0f;
+    // jitter viewport half a pixel to the right = one pixel in the full-res framebuffer
+    // = width of NDC divided by full-res pixel count
+    const float offset = 2.0f / camera->viewport().x();
     matrices[JITTERED_FRAME] = Matrix4::translation(Vector3::xAxis(offset)) * unjitteredProjection;
     matrices[1 - JITTERED_FRAME] = unjitteredProjection;
 
@@ -381,6 +382,10 @@ void Mosaiikki::drawEvent()
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
     }
 
+    
+    // undo any jitter
+    camera->setProjectionMatrix(unjitteredProjection);
+
     GL::defaultFramebuffer.bind();
 
     // combine framebuffers
@@ -398,9 +403,6 @@ void Mosaiikki::drawEvent()
             .setOptions(options.reconstruction);
         reconstructionShader.draw();
     }
-
-    // undo any jitter
-    camera->setProjectionMatrix(unjitteredProjection);
 
     // render UI
 
