@@ -13,7 +13,8 @@ struct Options
     struct Reconstruction
     {
         bool createVelocityBuffer = true;
-        bool assumeOcclusion = true;
+        bool assumeOcclusion = false;
+        float depthTolerance = 0.01f;
 
         struct Debug
         {

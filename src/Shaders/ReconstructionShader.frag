@@ -1,3 +1,6 @@
+// uniform buffer
+// core in 3.1
+#extension GL_ARB_uniform_buffer_object : require
 // sampler2DMS
 // core in 3.2
 #extension GL_ARB_texture_multisample : require
@@ -10,13 +13,16 @@ uniform sampler2DMSArray depth;
 
 uniform sampler2D velocity;
 
-uniform int currentFrame; // is the current frame even or odd? (-> index into color and depth array layers)
-
-uniform bool cameraParametersChanged;
-uniform ivec2 viewport;
-uniform mat4 prevViewProjection;
-uniform mat4 invViewProjection;
-//uniform vec4 depthTransform;
+layout(std140) uniform OptionsBlock
+{
+	mat4 prevViewProjection;
+	mat4 invViewProjection;
+	ivec2 viewport;
+	int currentFrame; // is the current frame even or odd? (-> index into color and depth array layers)
+	bool cameraParametersChanged;
+	int options;
+	float depthTolerance;
+};
 
 // this should match the bit flags in ReconstructionShader::setOptions
 #define USE_VELOCITY_BUFFER     (1 << 0)
@@ -304,12 +310,11 @@ void main()
 	}
 	else // more correct heuristic: check depth against current depth average
 	{
-		const float DEPTH_TOLERANCE = 0.01;
 		float currentDepthAverage = fetchDepthAverage(halfCoords, quadrant);
 		float oldDepth = fetchQuadrant(depth, oldHalfCoords, oldQuadrant).x;
 		// fetchDepthAverage returns average of linear view space depth
 		oldDepth = screenToViewDepth(oldDepth);
-		occluded = abs(currentDepthAverage - oldDepth) >= DEPTH_TOLERANCE;
+		occluded = abs(currentDepthAverage - oldDepth) >= depthTolerance;
 	}
 
 	if(occluded)

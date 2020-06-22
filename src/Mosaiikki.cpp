@@ -175,7 +175,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // set sample locations
 
-    // default on Nvidia 1070:
+    // default on Nvidia GTX 1070:
     // 0: (0.75, 0.75)
     // 1: (0.25, 0.25)
     // seems to be the opposite of the D3D11 pattern
@@ -383,7 +383,6 @@ void Mosaiikki::drawEvent()
         GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
     }
 
-    
     // undo any jitter
     camera->setProjectionMatrix(unjitteredProjection);
 
@@ -439,7 +438,6 @@ void Mosaiikki::buildUI()
     //ImGui::ShowDemoWindow();
 
     const ImVec2 margin = { 5.0f, 5.0f };
-    const ImVec2 screen = ImGui::GetIO().DisplaySize;
 
     ImGui::Begin(
         "Options", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
@@ -466,12 +464,21 @@ void Mosaiikki::buildUI()
                 "Always assume an old pixel is occluded in the current frame if the pixel moved by more than a quarter-res pixel.\n"
                 "If this is disabled, a more expensive check against the average surrounding depth value is used.");
 
+        {
+            ImGuiDisabledZone zone(options.reconstruction.assumeOcclusion);
+            ImGui::Indent();
+            ImGui::SetNextItemWidth(ImGui::CalcItemWidth() / 2.0f);
+            ImGui::SliderFloat("Depth tolerance", &options.reconstruction.depthTolerance, 0.0f, 0.5f, "%.3f");
+            if(ImGui::IsItemHovered())
+                ImGui::SetTooltip(
+                    "Maximum allowed view space depth difference before assuming occlusion");
+            ImGui::Unindent();
+        }
+
         ImGui::Separator();
 
-        float w = ImGui::CalcItemWidth() / 2.0f;
-        ImGui::SetNextItemWidth(w);
-
         static const char* const debugSamplesOptions[] = { "Combined", "Even", "Odd (jittered)" };
+        ImGui::SetNextItemWidth(ImGui::CalcItemWidth() / 2.0f);
         ImGui::Combo("Show samples",
                      (int*)&options.reconstruction.debug.showSamples,
                      debugSamplesOptions,
@@ -487,39 +494,34 @@ void Mosaiikki::buildUI()
         {
             ImGui::BeginTooltip();
             {
-                static const ImVec4 red = { 1.0f, 0.0f, 0.0f, 1.0f };
-                ImGui::ColorButton("red", red, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+                ImGui::ColorButton("red", ImVec4(Color4::red()));
                 ImGui::SameLine();
                 ImGui::Text("Old pixel was occluded");
             }
             {
-                static const ImVec4 green = { 0.0f, 1.0f, 0.0f, 1.0f };
-                ImGui::ColorButton("green", green, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+                ImGui::ColorButton("green", ImVec4(Color4::green()));
                 ImGui::SameLine();
                 ImGui::Text("Old pixel position is outside the screen");
             }
             {
-                static const ImVec4 blue = { 0.0f, 0.0f, 1.0f, 1.0f };
-                ImGui::ColorButton("blue", blue, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop);
+                ImGui::ColorButton("blue", ImVec4(Color4::blue()));
                 ImGui::SameLine();
                 ImGui::Text("Old pixel information is missing (jitter was cancelled out)");
             }
             ImGui::EndTooltip();
         }
 
-        ImVec2 size = ImGui::GetWindowSize();
-        ImVec2 pos = { screen.x - size.x - margin.x, margin.y };
+        const ImVec2 pos = { ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - margin.x, margin.y };
         ImGui::SetWindowPos(pos);
     }
     ImGui::End();
 
-    ImGui::Begin("Statistics",
-                 nullptr,
-                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+    ImGui::Begin(
+        "Stats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     {
         ImGui::Text("%s", profiler.statistics().c_str());
 
-        ImVec2 pos = { margin.x, margin.y };
+        const ImVec2 pos = { margin.x, margin.y };
         ImGui::SetWindowPos(pos);
     }
     ImGui::End();

@@ -15,12 +15,8 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
     colorSampler(-1),
     depthSampler(-1),
     velocitySampler(-1),
-    currentFrameUniform(-1),
-    cameraParametersChangedUniform(-1),
-    viewportUniform(-1),
-    prevViewProjectionUniform(-1),
-    invViewProjectionUniform(-1),
-    optionsUniform(-1),
+    optionsBlock(-1),
+    optionsBuffer(NoCreate),
     viewport({ 0, 0 }),
     projection(Math::IdentityInit),
     prevViewProjection(Math::IdentityInit)
@@ -51,12 +47,10 @@ ReconstructionShader::ReconstructionShader() :
     colorSampler = uniformLocation("color");
     depthSampler = uniformLocation("depth");
     velocitySampler = uniformLocation("velocity");
-    currentFrameUniform = uniformLocation("currentFrame");
-    cameraParametersChangedUniform = uniformLocation("cameraParametersChanged");
-    viewportUniform = uniformLocation("viewport");
-    prevViewProjectionUniform = uniformLocation("prevViewProjection");
-    invViewProjectionUniform = uniformLocation("invViewProjection");
-    optionsUniform = uniformLocation("options");
+    optionsBlock = uniformBlockIndex("OptionsBlock");
+
+    optionsBuffer = GL::Buffer(GL::Buffer::TargetHint::Uniform, { optionsData });
+    optionsBuffer.setLabel("Checkerboard resolve uniform buffer");
 }
 
 ReconstructionShader& ReconstructionShader::bindColor(GL::MultisampleTexture2DArray& attachment)
@@ -82,23 +76,22 @@ ReconstructionShader& ReconstructionShader::bindVelocity(GL::Texture2D& attachme
 
 ReconstructionShader& ReconstructionShader::setCurrentFrame(Int currentFrame)
 {
-    setUniform(currentFrameUniform, currentFrame);
+    optionsData.currentFrame = currentFrame;
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::setCameraInfo(SceneGraph::Camera3D& camera)
 {
     bool projectionChanged = (projection - camera.projectionMatrix()).toVector() != Math::Vector<4 * 4, Float>(0.0f);
-    bool cameraParametersChanged = viewport != camera.viewport() || projectionChanged;
-    setUniform(cameraParametersChangedUniform, cameraParametersChanged);
+    optionsData.cameraParametersChanged = viewport != camera.viewport() || projectionChanged;
     projection = camera.projectionMatrix();
 
     viewport = camera.viewport();
-    setUniform(viewportUniform, viewport);
+    optionsData.viewport = viewport;
 
     const Matrix4 viewProjection = projection * camera.cameraMatrix();
-    setUniform(prevViewProjectionUniform, prevViewProjection);
-    setUniform(invViewProjectionUniform, viewProjection.inverted());
+    optionsData.prevViewProjection = prevViewProjection;
+    optionsData.invViewProjection = viewProjection.inverted();
     prevViewProjection = viewProjection;
 
     return *this;
@@ -120,11 +113,14 @@ ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruc
     if(options.debug.showColors)
         options_bitset |= (1 << 5);
 
-    setUniform(optionsUniform, options_bitset);
+    optionsData.options = options_bitset;
+    optionsData.depthTolerance = options.depthTolerance;
     return *this;
 }
 
 void ReconstructionShader::draw()
 {
+    optionsBuffer.setData({ optionsData }, GL::BufferUsage::DynamicDraw);
+    optionsBuffer.bind(GL::Buffer::Target::Uniform, optionsBlock);
     AbstractShaderProgram::draw(triangle);
 }

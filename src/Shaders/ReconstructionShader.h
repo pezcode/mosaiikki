@@ -3,6 +3,7 @@
 #include <Magnum/GL/AbstractShaderProgram.h>
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Mesh.h>
+#include <Magnum/GL/Buffer.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include "Options.h"
 
@@ -39,12 +40,21 @@ private:
     Magnum::Int colorSampler;
     Magnum::Int depthSampler;
     Magnum::Int velocitySampler;
-    Magnum::Int currentFrameUniform;
-    Magnum::Int cameraParametersChangedUniform;
-    Magnum::Int viewportUniform;
-    Magnum::Int prevViewProjectionUniform;
-    Magnum::Int invViewProjectionUniform;
-    Magnum::Int optionsUniform;
+    Magnum::Int optionsBlock;
+
+    Magnum::GL::Buffer optionsBuffer;
+
+    struct OptionsBufferData
+    {
+        Magnum::Matrix4 prevViewProjection = Magnum::Matrix4(Magnum::Math::IdentityInit);
+        Magnum::Matrix4 invViewProjection = Magnum::Matrix4(Magnum::Math::IdentityInit);
+        Magnum::Vector2i viewport = { 0, 0 };
+        GLint currentFrame = 0;
+        GLuint cameraParametersChanged = false;
+        GLint options = 0;
+        GLfloat depthTolerance = 0.01f;
+    };
+    OptionsBufferData optionsData;
 
     Magnum::Vector2i viewport;
     Magnum::Matrix4 projection;
