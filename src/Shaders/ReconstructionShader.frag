@@ -35,8 +35,6 @@ layout(std140) uniform OptionsBlock
 
 #define OPTION_SET(OPT) ((options & OPT) != 0)
 
-uniform int options = 0;
-
 layout(location = 0) out vec4 fragColor;
 
 // https://software.intel.com/en-us/articles/checkerboard-rendering-for-real-time-upscaling-on-intel-integrated-graphics
@@ -116,24 +114,17 @@ void calculateAverageOffsets(out ivec2 offsets[4], out ivec4 quadrants)
 
 }
 
+// tonemapping operator for combining HDR samples to prevent bright samples from dominating the result
+// https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve/
+
 vec4 tonemap(vec4 color)
 {
-	return color;
+	return color / (max(color.r, max(color.g, color.b)) + 1.0);
 }
 
-// undo tonemap operation
-// averaging color values is only correct in linear RGB space
 vec4 undoTonemap(vec4 color)
 {
-	return color;
-}
-
-// undo depth projection
-// averaging depth values is only correct in linear view space
-float screenToViewDepth(float depth)
-{
-	return depth;
-	//return (depth * depthTransform.x + depthTransform.y) / (depth * depthTransform.z + depthTransform.w);
+	return color / (1.0 - max(color.r, max(color.g, color.b)));
 }
 
 vec4 fetchColorAverage(ivec2 coords, int quadrant)
@@ -153,11 +144,19 @@ vec4 fetchColorAverage(ivec2 coords, int quadrant)
 	);
 
 	vec4 result =
-		undoTonemap(fetchQuadrant(color, coords + offsets[UP   ], quadrants[UP   ])) +
-		undoTonemap(fetchQuadrant(color, coords + offsets[DOWN ], quadrants[DOWN ])) +
-		undoTonemap(fetchQuadrant(color, coords + offsets[LEFT ], quadrants[LEFT ])) +
-		undoTonemap(fetchQuadrant(color, coords + offsets[RIGHT], quadrants[RIGHT]));
-	return tonemap(result * 0.25);
+		tonemap(fetchQuadrant(color, coords + offsets[UP   ], quadrants[UP   ])) +
+		tonemap(fetchQuadrant(color, coords + offsets[DOWN ], quadrants[DOWN ])) +
+		tonemap(fetchQuadrant(color, coords + offsets[LEFT ], quadrants[LEFT ])) +
+		tonemap(fetchQuadrant(color, coords + offsets[RIGHT], quadrants[RIGHT]));
+	return undoTonemap(result * 0.25);
+}
+
+// undo depth projection
+// averaging depth values is only correct in linear view space
+float screenToViewDepth(float depth)
+{
+	return depth;
+	//return (depth * depthTransform.x + depthTransform.y) / (depth * depthTransform.z + depthTransform.w);
 }
 
 // returns averaged depth in view space
