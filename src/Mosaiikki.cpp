@@ -49,6 +49,11 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
     GLConfiguration glConf;
+    // for anything >= 3.20 Magnum creates a core context
+    // if we don't set a version, we get the highest version possible, but a compatibility context :(
+    // forward-compatible removes anything deprecated
+    glConf.setVersion(GL::Version::GL320);
+    glConf.addFlags(GLConfiguration::Flag::ForwardCompatible);
 #ifdef CORRADE_IS_DEBUG_BUILD
     glConf.addFlags(GLConfiguration::Flag::Debug);
 #endif
@@ -58,6 +63,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     setSwapInterval(0); // disable v-sync
 #endif
 
+    CORRADE_ASSERT(GL::Context::current().isCoreProfile(), "OpenGL core context expected", );
     MAGNUM_ASSERT_GL_VERSION_SUPPORTED(GL::Version::GL320);
 
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
@@ -84,7 +90,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     profiler.setup(DebugTools::GLFrameProfiler::Value::FrameTime | DebugTools::GLFrameProfiler::Value::GpuDuration, 60);
 
 #ifdef CORRADE_IS_DEBUG_BUILD
-    // redirect debug messages to default Corrade Debug output
+    GL::Renderer::enable(GL::Renderer::Feature::DebugOutput);
+    // redirect debug messages to Corrade Debug output
     GL::DebugOutput::setDefaultCallback();
     // disable unimportant output
     // markers and groups are only used for RenderDoc
@@ -173,13 +180,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     framebuffers[0].bind();
 
-    // set sample locations
-
-    // default on Nvidia GTX 1070:
-    // 0: (0.75, 0.75)
-    // 1: (0.25, 0.25)
-    // seems to be the opposite of the D3D11 pattern
-    // https://docs.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_standard_multisample_quality_levels
+    // set explicit sample locations
+    // OpenGL does not specify them, so we have to do it manually using one of the three extensions
 
     const GLsizei SAMPLE_COUNT = 2;
     float samplePositions[SAMPLE_COUNT][2] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
@@ -204,9 +206,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     // just a sanity check, really
     for(GLuint i = 0; i < SAMPLE_COUNT; i++)
     {
-        // GL_SAMPLE_POSITION reads the default sample location with ARB_sample_locations
-        // AMD_sample_positions doesn't have GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
-        // does GL_SAMPLE_POSITION return the programmable or the default locations then?
+        // GL_SAMPLE_POSITION reads the default sample location with ARB/NV_sample_locations
         GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
                               : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
         glGetMultisamplefv(name, i, samplePositions[i]);
