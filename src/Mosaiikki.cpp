@@ -68,7 +68,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
     bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
-    // TODO Intel? Can't find a supported GL extension although D3D12 support for it exists
+    // Haven't found an Intel extension although D3D12 support for it exists
 
     CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found", );
 
@@ -468,10 +468,11 @@ void Mosaiikki::buildUI()
             ImGui::SetNextItemWidth(ImGui::CalcItemWidth() / 2.0f);
             ImGui::SliderFloat("Depth tolerance", &options.reconstruction.depthTolerance, 0.0f, 0.5f, "%.3f");
             if(ImGui::IsItemHovered())
-                ImGui::SetTooltip(
-                    "Maximum allowed view space depth difference before assuming occlusion");
+                ImGui::SetTooltip("Maximum allowed view space depth difference before assuming occlusion");
             ImGui::Unindent();
         }
+
+#ifdef CORRADE_IS_DEBUG_BUILD
 
         ImGui::Separator();
 
@@ -508,6 +509,8 @@ void Mosaiikki::buildUI()
             }
             ImGui::EndTooltip();
         }
+
+#endif
 
         const ImVec2 pos = { ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - margin.x, margin.y };
         ImGui::SetWindowPos(pos);

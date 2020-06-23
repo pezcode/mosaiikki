@@ -8,9 +8,16 @@
 // core in 3.3
 #extension GL_ARB_explicit_attrib_location : require
 
-uniform sampler2DMSArray color; // even / odd (jittered)
+// Reference:
+// https://software.intel.com/en-us/articles/checkerboard-rendering-for-real-time-upscaling-on-intel-integrated-graphics
+
+// quarter-res 2X multisampled textures
+// two layers: even / odd (jittered)
+uniform sampler2DMSArray color;
 uniform sampler2DMSArray depth;
 
+// full-res screen-space velocity buffer
+// .z is a mask for moving objects
 uniform sampler2D velocity;
 
 layout(std140) uniform OptionsBlock
@@ -26,7 +33,8 @@ layout(std140) uniform OptionsBlock
 	float depthTolerance;
 };
 
-// this should match the bit flags in ReconstructionShader::setOptions
+// bit masks for flags
+// this should match the ones in ReconstructionShader::setOptions
 #define USE_VELOCITY_BUFFER     (1 << 0)
 #define ASSUME_OCCLUSION        (1 << 1)
 
@@ -36,54 +44,56 @@ layout(std140) uniform OptionsBlock
 #define DEBUG_SHOW_COLORS       (1 << 5)
 
 #define OPTION_SET(OPT) ((flags & OPT) != 0)
+#ifdef DEBUG
+#define DEBUG_OPTION_SET(OPT) OPTION_SET(OPT)
+#else
+#define DEBUG_OPTION_SET(OPT) (false)
+#endif
 
 layout(location = 0) out vec4 fragColor;
 
-// https://software.intel.com/en-us/articles/checkerboard-rendering-for-real-time-upscaling-on-intel-integrated-graphics
-// https://github.com/GameTechDev/DynamicCheckerboardRendering/blob/master/MiniEngine/ModelViewer/Shaders/CheckerboardColorResolveCS.hlsl
+/*
+each quarter-res pixel corresponds to 4 pixels (quadrants) in the full-res output
+each quarter-res pixel has two MSAA samples at fixed positions
 
-// D3D (original):
+quadrants:
++---+---+
+| 2 | 3 |
++---+---+
+| 0 | 1 |
++---+---+
 
-// quadrants:
-// +---+---+
-// | 0 | 1 |
-// +---+---+
-// | 2 | 3 |
-// +---+---+
+sample positions:
++---+---+
+|   | 0 |
++---+---+
+| 1 |   |
++---+---+
 
-// samples:
-// +---+---+
-// | 1 |   |
-// +---+---+
-// |   | 0 |
-// +---+---+
+the odd frames' viewport is jittered half a pixel (= one full-res pixel) to the right
+so the sample positions overlap for full coverage across two frames
 
-// GL:
-
-// quadrants:
-// +---+---+
-// | 2 | 3 |
-// +---+---+
-// | 0 | 1 |
-// +---+---+
-
-// sample positions:
-// +---+---+
-// |   | 0 |
-// +---+---+
-// | 1 |   |
-// +---+---+
-
-// the odd frames are jittered half a pixel (= one full-res pixel) to the right
-// so the sample positions overlap:
-
-// +---+---+---
-// |   | E | O 
-// +---+---+---
-// | E | O |   
-// +---+---+
-
-// e.g. quadrant 1 = sample 1 from the odd frame's pixel to the right
+even:
+    +---+---+
+    |   | 0 |
+    +---+---+
+    | 1 |   |
+    +---+---+
+ 
+odd:
+    +---+---+
+    |   | A |
+    +---+---+
+    | B |   |
+    +---+---+
+ 
+combined:
+    +---+---+
+    | A | 0 |
++---+---+---+
+| B | 1 |   |
++---+---+---+
+*/
 
 int calculateQuadrant(ivec2 pixelCoords)
 {
@@ -106,17 +116,82 @@ vec4 fetchQuadrant(sampler2DMSArray tex, ivec2 coords, int quadrant)
 	}
 }
 
+/*
+quadrants to evaluate when averaging values around a quadrant:
+
+0:
+   +---+---+
+   | 0 |   |
+---+---+---+
+ 1 | X | 1 |
+---+---+---+
+   | 0 |
+
+1:
+   +---+---+
+   |   | 0 |
+   +---+---+---
+   | 1 | X | 1
+   +---+---+---
+       | 0 |
+
+2:
+   | 1 |
+---+---+---+
+ 0 | X | 0 |
+---+---+---+
+   | 1 |   |
+   +---+---+
+
+3:
+       | 1 |
+   +---+---+---
+   | 0 | X | 0
+   +---+---+---
+   |   | 1 |
+   +---+---+
+*/
+
 #define UP 0
 #define DOWN 1
 #define LEFT 2
 #define RIGHT 3
 
-void calculateAverageOffsets(out ivec2 offsets[4], out ivec4 quadrants)
-{
+const ivec2 directionOffsets[4*4] = ivec2[4*4](
+	// quadrant 0
+	ivec2( 0,  0), // up
+	ivec2( 0, -1), // down
+	ivec2(-1,  0), // left
+	ivec2( 0,  0), // right
+	// quadrant 1
+	ivec2( 0,  0),
+	ivec2( 0, -1),
+	ivec2( 0,  0),
+	ivec2(+1,  0),
+	// quadrant 2
+	ivec2( 0, +1),
+	ivec2( 0,  0),
+	ivec2(-1,  0),
+	ivec2( 0,  0),
+	// quadrant 3
+	ivec2( 0, +1),
+	ivec2( 0,  0),
+	ivec2( 0,  0),
+	ivec2(+1,  0)
+);
 
-}
+const ivec4 directionQuadrants[4] = ivec4[4](
+	// quadrant 0
+	ivec4(ivec2(2), ivec2(1)), // up/down, left/right
+	// quadrant 1
+	ivec4(ivec2(3), ivec2(0)),
+	// quadrant 2
+	ivec4(ivec2(0), ivec2(3)),
+	// quadrant 3
+	ivec4(ivec2(1), ivec2(2))
+);
 
-// tonemapping operator for combining HDR samples to prevent bright samples from dominating the result
+// tonemapping operator for combining HDR colors to prevent bright samples from dominating the result
 // https://gpuopen.com/learn/optimized-reversible-tonemapper-for-resolve/
 
 vec4 tonemap(vec4 color)
@@ -131,27 +206,12 @@ vec4 undoTonemap(vec4 color)
 
 vec4 fetchColorAverage(ivec2 coords, int quadrant)
 {
-	// TODO
-
-	const ivec2 offsets[4] = ivec2[4](
-		ivec2(0, 0),
-		ivec2(0, 0),
-		ivec2(0, 0),
-		ivec2(0, 0)
-	);
-
-	const ivec4 quadrants = ivec4(
-		0,
-		0,
-		0,
-		0
-	);
-
+	int k = quadrant * 4;
 	vec4 result =
-		tonemap(fetchQuadrant(color, coords + offsets[UP   ], quadrants[UP   ])) +
-		tonemap(fetchQuadrant(color, coords + offsets[DOWN ], quadrants[DOWN ])) +
-		tonemap(fetchQuadrant(color, coords + offsets[LEFT ], quadrants[LEFT ])) +
-		tonemap(fetchQuadrant(color, coords + offsets[RIGHT], quadrants[RIGHT]));
+		tonemap(fetchQuadrant(color, coords + directionOffsets[k + UP   ], directionQuadrants[quadrant][UP   ])) +
+		tonemap(fetchQuadrant(color, coords + directionOffsets[k + DOWN ], directionQuadrants[quadrant][DOWN ])) +
+		tonemap(fetchQuadrant(color, coords + directionOffsets[k + LEFT ], directionQuadrants[quadrant][LEFT ])) +
+		tonemap(fetchQuadrant(color, coords + directionOffsets[k + RIGHT], directionQuadrants[quadrant][RIGHT]));
 	return undoTonemap(result * 0.25);
 }
 
@@ -169,27 +229,12 @@ float screenToViewDepth(float depth)
 // depth buffer values are non-linear, averaging those produces incorrect results
 float fetchDepthAverage(ivec2 coords, int quadrant)
 {
-	// TODO
-
-	const ivec2 offsets[4] = ivec2[4](
-		ivec2(0, 0),
-		ivec2(0, 0),
-		ivec2(0, 0),
-		ivec2(0, 0)
-	);
-
-	const ivec4 quadrants = ivec4(
-		0,
-		0,
-		0,
-		0
-	);
-
+	int k = quadrant * 4;
 	float result =
-		screenToViewDepth(fetchQuadrant(depth, coords + offsets[UP   ], quadrants[UP   ]).x) +
-		screenToViewDepth(fetchQuadrant(depth, coords + offsets[DOWN ], quadrants[DOWN ]).x) +
-		screenToViewDepth(fetchQuadrant(depth, coords + offsets[LEFT ], quadrants[LEFT ]).x) +
-		screenToViewDepth(fetchQuadrant(depth, coords + offsets[RIGHT], quadrants[RIGHT]).x);
+		screenToViewDepth(fetchQuadrant(depth, coords + directionOffsets[k + UP   ], directionQuadrants[quadrant][UP   ]).x) +
+		screenToViewDepth(fetchQuadrant(depth, coords + directionOffsets[k + DOWN ], directionQuadrants[quadrant][DOWN ]).x) +
+		screenToViewDepth(fetchQuadrant(depth, coords + directionOffsets[k + LEFT ], directionQuadrants[quadrant][LEFT ]).x) +
+		screenToViewDepth(fetchQuadrant(depth, coords + directionOffsets[k + RIGHT], directionQuadrants[quadrant][RIGHT]).x);
 	return result * 0.25;
 }
 
@@ -207,8 +252,6 @@ ivec2 reprojectPixel(ivec2 coords, float depth)
 	return coords;
 }
 
-// TODO turn this (and depth blit) into a compute shader
-
 void main()
 {
 	ivec2 coords = ivec2(floor(gl_FragCoord.xy));
@@ -221,7 +264,7 @@ void main()
 	);
 
 	// debug output: velocity buffer
-	if(OPTION_SET(DEBUG_SHOW_VELOCITY))
+	if(DEBUG_OPTION_SET(DEBUG_SHOW_VELOCITY))
 	{
 		vec2 vel = texelFetch(velocity, coords, 0).xy;
 		fragColor = vec4(abs(vel * 255.0), 0.0, 1.0);
@@ -229,7 +272,7 @@ void main()
 	}
 
 	// debug output: checkered frame
-	if(OPTION_SET(DEBUG_SHOW_SAMPLES))
+	if(DEBUG_OPTION_SET(DEBUG_SHOW_SAMPLES))
 	{
 		int sampleFrame = OPTION_SET(DEBUG_SHOW_EVEN_SAMPLES) ? 0 : 1;
 		ivec2 boardQuadrants = FRAME_QUADRANTS[sampleFrame];
@@ -285,7 +328,7 @@ void main()
 	{
 		// previous position is outside the screen
 		// -> interpolate
-		if(OPTION_SET(DEBUG_SHOW_COLORS))
+		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
 			fragColor = vec4(0.0, 1.0, 0.0, 1.0);
 		else
 			fragColor = fetchColorAverage(halfCoords, quadrant);
@@ -301,7 +344,7 @@ void main()
 	{
 		// nope, movement cancelled the jitter so there's no shading information
 		// -> interpolate
-		if(OPTION_SET(DEBUG_SHOW_COLORS))
+		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
 			fragColor = vec4(0.0, 0.0, 1.0, 1.0);
 		else
 			fragColor = fetchColorAverage(halfCoords, quadrant);
@@ -329,7 +372,7 @@ void main()
 
 	if(occluded)
 	{
-		if(OPTION_SET(DEBUG_SHOW_COLORS))
+		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
 			fragColor = vec4(1.0, 0.0, 0.0, 1.0);
 		else
 			fragColor = fetchColorAverage(halfCoords, quadrant);

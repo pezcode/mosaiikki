@@ -9,15 +9,11 @@
 
 using namespace Magnum;
 
-DepthBlitShader::DepthBlitShader(NoCreateT) :
-    GL::AbstractShaderProgram(NoCreate),
-    triangle(NoCreate),
-    depthSampler(-1)
+DepthBlitShader::DepthBlitShader(NoCreateT) : GL::AbstractShaderProgram(NoCreate), triangle(NoCreate), depthSampler(-1)
 {
 }
 
-DepthBlitShader::DepthBlitShader() :
-    GL::AbstractShaderProgram()
+DepthBlitShader::DepthBlitShader() : GL::AbstractShaderProgram()
 {
     triangle = MeshTools::fullScreenTriangle(GLVersion);
 

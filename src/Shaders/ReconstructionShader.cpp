@@ -36,6 +36,9 @@ ReconstructionShader::ReconstructionShader() :
 
     Utility::Resource rs("shaders");
     vert.addSource(rs.get("ReconstructionShader.vert"));
+#ifdef CORRADE_IS_DEBUG_BUILD
+    frag.addSource("#define DEBUG");
+#endif
     frag.addSource(rs.get("ReconstructionShader.frag"));
 
     // possibly parallel compilation
@@ -49,7 +52,7 @@ ReconstructionShader::ReconstructionShader() :
     velocitySampler = uniformLocation("velocity");
     optionsBlock = uniformBlockIndex("OptionsBlock");
 
-    optionsBuffer = GL::Buffer(GL::Buffer::TargetHint::Uniform, { optionsData });
+    optionsBuffer = GL::Buffer(GL::Buffer::TargetHint::Uniform, { optionsData }, GL::BufferUsage::DynamicDraw);
     optionsBuffer.setLabel("Checkerboard resolve uniform buffer");
 }
 
@@ -122,7 +125,9 @@ ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruc
 
 void ReconstructionShader::draw()
 {
+    // orphan the old buffer to prevent stalls
     optionsBuffer.setData({ optionsData }, GL::BufferUsage::DynamicDraw);
+    //optionsBuffer.setSubData(0, { optionsData });
     optionsBuffer.bind(GL::Buffer::Target::Uniform, optionsBlock);
     AbstractShaderProgram::draw(triangle);
 }
