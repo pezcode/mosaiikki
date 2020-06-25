@@ -4,16 +4,16 @@
 #include <Magnum/GL/Version.h>
 #include <Magnum/Math/Matrix4.h>
 
-class VelocityShader : public Magnum::GL::AbstractShaderProgram
+class MaterialShader : public Magnum::GL::AbstractShaderProgram
 {
 public:
-    VelocityShader(Magnum::NoCreateT);
-    VelocityShader();
+    MaterialShader(Magnum::NoCreateT);
+    MaterialShader();
 
-    VelocityShader& setOldTransformation(const Magnum::Matrix4& oldTransformation);
-    VelocityShader& setTransformation(const Magnum::Matrix4& transformation);
-    VelocityShader& setOldProjection(const Magnum::Matrix4& oldProjection);
-    VelocityShader& setProjection(const Magnum::Matrix4& projection);
+    MaterialShader& setOldTransformation(const Magnum::Matrix4& oldTransformation);
+    MaterialShader& setTransformation(const Magnum::Matrix4& transformation);
+    MaterialShader& setOldProjection(const Magnum::Matrix4& oldProjection);
+    MaterialShader& setProjection(const Magnum::Matrix4& projection);
 
 private:
     using Magnum::GL::AbstractShaderProgram::drawTransformFeedback;

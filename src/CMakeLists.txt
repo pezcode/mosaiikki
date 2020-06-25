@@ -4,11 +4,15 @@ set(SOURCES
 	Mosaiikki.cpp
 	ImGuiApplication.h
 	ImGuiApplication.cpp
+	SceneImporter.h
+	SceneImporter.cpp
 	VelocityDrawable.h
 	ColoredDrawable.h
 	SingleAxisTranslationAnimable.h
 	Feature.h
 	Options.h
+	Shaders/MaterialShader.h
+	Shaders/MaterialShader.cpp
 	Shaders/ReconstructionShader.h
 	Shaders/ReconstructionShader.cpp
 	Shaders/VelocityShader.h
@@ -18,6 +22,8 @@ set(SOURCES
 )
 
 set(SHADERS
+	Shaders/MaterialShader.vert
+	Shaders/MaterialShader.frag
 	Shaders/ReconstructionShader.vert
 	Shaders/ReconstructionShader.frag
 	Shaders/VelocityShader.vert
@@ -46,9 +52,10 @@ find_package(Magnum REQUIRED
 	Trade
 	MeshTools
 	AnySceneImporter
+    AnyImageImporter
 	DebugTools
 )
-find_package(MagnumPlugins REQUIRED TinyGltfImporter)
+find_package(MagnumPlugins REQUIRED TinyGltfImporter StbImageImporter)
 find_package(MagnumIntegration REQUIRED ImGui)
 
 # embed shaders
@@ -68,8 +75,10 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	Magnum::Trade
 	Magnum::MeshTools
 	Magnum::AnySceneImporter
+    Magnum::AnyImageImporter
 	Magnum::DebugTools
 	MagnumPlugins::TinyGltfImporter
+    MagnumPlugins::StbImageImporter
 	MagnumIntegration::ImGui
 )
 

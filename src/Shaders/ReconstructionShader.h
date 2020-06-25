@@ -26,6 +26,9 @@ public:
     void draw();
 
 private:
+    using Magnum::GL::AbstractShaderProgram::drawTransformFeedback;
+    using Magnum::GL::AbstractShaderProgram::dispatchCompute;
+
     static constexpr Magnum::GL::Version GLVersion = Magnum::GL::Version::GL300;
 
     Magnum::GL::Mesh triangle;
@@ -37,11 +40,7 @@ private:
         Velocity
     };
 
-    Magnum::Int colorSampler;
-    Magnum::Int depthSampler;
-    Magnum::Int velocitySampler;
     Magnum::Int optionsBlock;
-
     Magnum::GL::Buffer optionsBuffer;
 
     struct OptionsBufferData

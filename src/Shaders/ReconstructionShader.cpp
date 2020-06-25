@@ -12,12 +12,9 @@ using namespace Magnum;
 ReconstructionShader::ReconstructionShader(NoCreateT) :
     GL::AbstractShaderProgram(NoCreate),
     triangle(NoCreate),
-    colorSampler(-1),
-    depthSampler(-1),
-    velocitySampler(-1),
     optionsBlock(-1),
     optionsBuffer(NoCreate),
-    viewport({ 0, 0 }),
+    viewport(0, 0),
     projection(Math::IdentityInit),
     prevViewProjection(Math::IdentityInit)
 {
@@ -25,7 +22,7 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
 
 ReconstructionShader::ReconstructionShader() :
     GL::AbstractShaderProgram(),
-    viewport({ 0, 0 }),
+    viewport(0, 0),
     projection(Math::IdentityInit),
     prevViewProjection(Math::IdentityInit)
 {
@@ -47,9 +44,10 @@ ReconstructionShader::ReconstructionShader() :
     attachShaders({ vert, frag });
     link();
 
-    colorSampler = uniformLocation("color");
-    depthSampler = uniformLocation("depth");
-    velocitySampler = uniformLocation("velocity");
+    setUniform(uniformLocation("color"), TextureUnits::Color);
+    setUniform(uniformLocation("depth"), TextureUnits::Depth);
+    setUniform(uniformLocation("velocity"), TextureUnits::Velocity);
+
     optionsBlock = uniformBlockIndex("OptionsBlock");
 
     optionsBuffer = GL::Buffer(GL::Buffer::TargetHint::Uniform, { optionsData }, GL::BufferUsage::DynamicDraw);
@@ -58,21 +56,18 @@ ReconstructionShader::ReconstructionShader() :
 
 ReconstructionShader& ReconstructionShader::bindColor(GL::MultisampleTexture2DArray& attachment)
 {
-    setUniform(colorSampler, TextureUnits::Color);
     attachment.bind(TextureUnits::Color);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::bindDepth(GL::MultisampleTexture2DArray& attachment)
 {
-    setUniform(depthSampler, TextureUnits::Depth);
     attachment.bind(TextureUnits::Depth);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::bindVelocity(GL::Texture2D& attachment)
 {
-    setUniform(velocitySampler, TextureUnits::Velocity);
     attachment.bind(TextureUnits::Velocity);
     return *this;
 }

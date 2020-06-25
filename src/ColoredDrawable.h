@@ -15,9 +15,8 @@ public:
     explicit ColoredDrawable(Object3D& object,
                              Magnum::Shaders::Phong& shader,
                              Magnum::GL::Mesh& mesh,
-                             const Magnum::Vector3& lightPos,
                              const Magnum::Color4& color) :
-        Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), lightPos(lightPos), color(color)
+        Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), color(color)
     {
     }
 
@@ -25,7 +24,6 @@ public:
         Magnum::SceneGraph::Drawable3D(object),
         shader(other.shader),
         mesh(other.mesh),
-        lightPos(other.lightPos),
         color(other.color)
     {
     }
@@ -48,7 +46,6 @@ private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
     {
         shader.setDiffuseColor(color)
-            .setLightPosition(camera.cameraMatrix().transformPoint(lightPos))
             .setTransformationMatrix(transformationMatrix)
             .setNormalMatrix(transformationMatrix.normalMatrix())
             .setProjectionMatrix(camera.projectionMatrix());
@@ -58,6 +55,5 @@ private:
 
     Magnum::Shaders::Phong& shader;
     Magnum::GL::Mesh& mesh;
-    const Magnum::Vector3 lightPos;
     Magnum::Color4 color;
 };

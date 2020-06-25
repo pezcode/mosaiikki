@@ -9,9 +9,13 @@
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/GL/Renderer.h>
 #include <Magnum/Trade/AbstractImporter.h>
+#include <Magnum/Trade/SceneData.h>
 #include <Magnum/Trade/MeshData.h>
 #include <Magnum/Trade/MeshObjectData3D.h>
-#include <Magnum/Trade/SceneData.h>
+#include <Magnum/Trade/TextureData.h>
+#include <Magnum/Trade/ImageData.h>
+#include <Magnum/ImageView.h>
+#include <Magnum/PixelFormat.h>
 #include <Magnum/MeshTools/Compile.h>
 #include <Magnum/Math/Color.h>
 #include <Corrade/Utility/Arguments.h>
@@ -29,8 +33,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     _debug(nullptr),
     _warning(nullptr),
     _error(nullptr),
+    materialShader(NoCreate),
     velocityShader(NoCreate),
-    meshShader(NoCreate),
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
@@ -102,10 +106,10 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
 #endif
 
-    // command line
+    // Command line
 
     Utility::Arguments parser;
-    parser.addOption("mesh", "resources/models/Suzanne.glb")
+    parser.addOption("mesh", "resources/models/Suzanne.gltf")
         .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
         .setHelp("font", "GUI font to load")
@@ -120,7 +124,9 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // Scene
 
-    lightPos = { -3.0f, 10.0f, 10.0f };
+    lightPositions = Containers::array<Vector3>({ { -3.0f, 10.0f, 10.0f } });
+    lightColors = Containers::array<Color4>({ 0xffffff_rgbf });
+    CORRADE_INTERNAL_ASSERT(lightPositions.size() == lightColors.size());
 
     cameraObject.setParent(&scene).translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
@@ -184,21 +190,21 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     // OpenGL does not specify them, so we have to do it manually using one of the three extensions
 
     const GLsizei SAMPLE_COUNT = 2;
-    float samplePositions[SAMPLE_COUNT][2] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
+    Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
 
     if(ext_arb)
     {
-        glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, &samplePositions[0][0]);
+        glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
     }
     else if(ext_nv)
     {
-        glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, &samplePositions[0][0]);
+        glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
     }
     else if(ext_amd)
     {
         for(GLuint i = 0; i < SAMPLE_COUNT; i++)
         {
-            glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, &samplePositions[i][0]);
+            glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, samplePositions[i].data());
         }
     }
 
@@ -209,20 +215,27 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         // GL_SAMPLE_POSITION reads the default sample location with ARB/NV_sample_locations
         GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
                               : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
-        glGetMultisamplefv(name, i, samplePositions[i]);
+        glGetMultisamplefv(name, i, samplePositions[i].data());
     }
 
-    Debug(Debug::Flag::NoSpace) << "MSAA 2x sample positions:" << Debug::newline << "(" << samplePositions[0][0] << ", "
-                                << samplePositions[0][1] << ")" << Debug::newline << "(" << samplePositions[1][0]
-                                << ", " << samplePositions[1][1] << ")";
+    Debug() << "MSAA 2x sample positions:";
+    for(Vector2 pos : samplePositions)
+    {
+        Debug() << pos;
+    }
 
     // Shaders
 
     velocityShader = VelocityShader();
 
-    meshShader = Shaders::Phong();
-    meshShader.setAmbientColor(0x111111_rgbf).setSpecularColor(0xffffff_rgbf).setShininess(80.0f);
-    meshShader.setLabel("Phong shader");
+    materialShader = Shaders::Phong(Shaders::Phong::Flag(0), //Shaders::Phong::Flag::DiffuseTexture,
+                                    lightPositions.size());
+    materialShader.setAmbientColor(0x111111_rgbf)
+        .setSpecularColor(0xffffff_rgbf)
+        .setShininess(80.0f)
+        .setLightPositions(lightPositions)
+        .setLightColors(lightColors);
+    materialShader.setLabel("Material shader");
 
     depthBlitShader = DepthBlitShader();
     depthBlitShader.setLabel("Depth blit shader");
@@ -283,7 +296,7 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
         framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
         framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
 
-        std::string label = Utility::format("Framebuffer {} (quarter-res)", i + 1);
+        std::string label(Utility::format("Framebuffer {} (quarter-res)", i + 1));
         framebuffers[i].setLabel(label);
 
         CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) ==
@@ -546,31 +559,32 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
     // load importer
 
     PluginManager::Manager<Trade::AbstractImporter> manager;
-    Containers::Pointer<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AnySceneImporter");
-    if(!importer)
+    Containers::Pointer<Trade::AbstractImporter> sceneImporter = manager.loadAndInstantiate("AnySceneImporter");
+    Containers::Pointer<Trade::AbstractImporter> imageImporter = manager.loadAndInstantiate("AnyImageImporter");
+    if(!sceneImporter)
         return false;
 
     // load scene
 
-    if(!importer->openFile(file))
+    if(!sceneImporter->openFile(file))
         return false;
 
-    if(importer->sceneCount() == 0)
+    if(sceneImporter->sceneCount() == 0)
         return false;
 
-    Int sceneId = importer->defaultScene();
+    Int sceneId = sceneImporter->defaultScene();
     if(sceneId == -1)
         sceneId = 0;
-    Containers::Optional<Trade::SceneData> sceneData = importer->scene(sceneId);
+    Containers::Optional<Trade::SceneData> sceneData = sceneImporter->scene(sceneId);
     if(!sceneData)
         return false;
 
     // extract and compile meshes
 
-    meshes = Containers::Array<Containers::Optional<GL::Mesh>>(importer->meshCount());
-    for(UnsignedInt i = 0; i < importer->meshCount(); i++)
+    meshes = Containers::Array<Containers::Optional<GL::Mesh>>(sceneImporter->meshCount());
+    for(UnsignedInt i = 0; i < sceneImporter->meshCount(); i++)
     {
-        Containers::Optional<Trade::MeshData> data = importer->mesh(i);
+        Containers::Optional<Trade::MeshData> data = sceneImporter->mesh(i);
         if(data && data->hasAttribute(Trade::MeshAttribute::Position) &&
            data->hasAttribute(Trade::MeshAttribute::Normal) &&
            GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
@@ -579,11 +593,59 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
         }
     }
 
+    // load materials
+
+    materials = Containers::Array<Containers::Optional<Trade::PhongMaterialData>>(sceneImporter->materialCount());
+    for(UnsignedInt i = 0; i < sceneImporter->materialCount(); i++)
+    {
+        Containers::Pointer<Trade::AbstractMaterialData> data = sceneImporter->material(i);
+        if(data && data->type() == Trade::MaterialType::Phong)
+        {
+            materials[i] = std::move(static_cast<Trade::PhongMaterialData&>(*data));
+        }
+    }
+
+    // load textures
+
+    textures = Containers::Array<Containers::Optional<GL::Texture2D>>(sceneImporter->textureCount());
+    for(UnsignedInt i = 0; i < sceneImporter->textureCount(); i++)
+    {
+        Containers::Optional<Trade::TextureData> textureData = sceneImporter->texture(i);
+        if(textureData && textureData->type() == Trade::TextureData::Type::Texture2D)
+        {
+            Containers::Optional<Trade::ImageData2D> imageData =
+                sceneImporter->image2D(textureData->image(), 0 /* level */);
+            if(imageData)
+            {
+                GL::TextureFormat format;
+                switch(imageData->format())
+                {
+                    case PixelFormat::RGB8Unorm:
+                        format = GL::TextureFormat::RGB8;
+                        break;
+                    case PixelFormat::RGBA8Unorm:
+                        format = GL::TextureFormat::RGB8;
+                        break;
+                    default:
+                        continue;
+                }
+                GL::Texture2D texture;
+                texture.setMagnificationFilter(textureData->magnificationFilter())
+                    .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
+                    .setWrapping(textureData->wrapping().xy())
+                    .setStorage(Math::log2(imageData->size().max()) + 1, format, imageData->size())
+                    .setSubImage(0, {}, *imageData)
+                    .generateMipmap();
+                textures[i] = std::move(texture);
+            }
+        }
+    }
+
     // add objects recursively
 
     for(UnsignedInt objectId : sceneData->children3D())
     {
-        addObject(*importer, objectId, parent);
+        addObject(*sceneImporter, objectId, parent);
     }
 
     return true;
@@ -604,7 +666,7 @@ void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectI
            meshes[objectData->instance()])
         {
             SceneGraph::Drawable3D* drawable =
-                new Drawable3D(object, meshShader, *meshes[objectData->instance()], lightPos, 0xffffff_rgbf);
+                new Drawable3D(object, materialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
             drawables.add(*drawable);
         }
 

@@ -5,14 +5,16 @@
 #include "VelocityDrawable.h"
 #include "ColoredDrawable.h"
 #include "SingleAxisTranslationAnimable.h"
-#include "Shaders/VelocityShader.h"
+#include "Shaders/MaterialShader.h"
 #include "Shaders/ReconstructionShader.h"
+#include "Shaders/VelocityShader.h"
 #include "Shaders/DepthBlitShader.h"
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include <Magnum/SceneGraph/AnimableGroup.h>
+#include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/Timeline.h>
 #include <Magnum/GL/GL.h>
@@ -42,7 +44,7 @@ class Mosaiikki : public ImGuiApplication
 public:
     explicit Mosaiikki(const Arguments& arguments);
 
-    static constexpr char* NAME = "mosaiikki";
+    static constexpr char const * NAME = "mosaiikki";
 
 private:
     typedef Magnum::SceneGraph::MatrixTransformation3D Transform3D;
@@ -78,6 +80,8 @@ private:
     // scene graph
 
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
+    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
+    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::Trade::PhongMaterialData>> materials;
 
     Scene3D scene;
     Object3D manipulator, cameraObject;
@@ -85,8 +89,8 @@ private:
     Magnum::SceneGraph::DrawableGroup3D drawables;
     Magnum::SceneGraph::DrawableGroup3D velocityDrawables; // moving objects that contribute to the velocity buffer
 
+    Magnum::Shaders::Phong materialShader;
     VelocityShader velocityShader;
-    Magnum::Shaders::Phong meshShader;
 
     // scene
 
@@ -96,8 +100,9 @@ private:
     Magnum::Timeline timeline;
     Magnum::SceneGraph::AnimableGroup3D meshAnimables;
     Magnum::SceneGraph::AnimableGroup3D cameraAnimables;
-    Magnum::Vector3 lightPos;
-    const size_t objectGridSize = 6;
+    static constexpr size_t objectGridSize = 6;
+    Corrade::Containers::Array<Magnum::Vector3> lightPositions;
+    Corrade::Containers::Array<Magnum::Color4> lightColors;
 
     // checkerboard rendering
 

@@ -9,11 +9,11 @@
 
 using namespace Magnum;
 
-DepthBlitShader::DepthBlitShader(NoCreateT) : GL::AbstractShaderProgram(NoCreate), triangle(NoCreate), depthSampler(-1)
+DepthBlitShader::DepthBlitShader(NoCreateT) : GL::AbstractShaderProgram(NoCreate), triangle(NoCreate)
 {
 }
 
-DepthBlitShader::DepthBlitShader() : GL::AbstractShaderProgram()
+DepthBlitShader::DepthBlitShader()
 {
     triangle = MeshTools::fullScreenTriangle(GLVersion);
 
@@ -30,12 +30,11 @@ DepthBlitShader::DepthBlitShader() : GL::AbstractShaderProgram()
     attachShaders({ vert, frag });
     link();
 
-    depthSampler = uniformLocation("depth");
+    setUniform(uniformLocation("depth"), TextureUnits::Depth);
 }
 
 DepthBlitShader& DepthBlitShader::bindDepth(GL::Texture2D& attachment)
 {
-    setUniform(depthSampler, TextureUnits::Depth);
     attachment.bind(TextureUnits::Depth);
     return *this;
 }
