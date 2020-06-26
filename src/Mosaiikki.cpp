@@ -339,12 +339,15 @@ void Mosaiikki::drawEvent()
         velocityFramebuffer.clearColor(0, 0_rgbf);
         velocityFramebuffer.clearDepth(1.0f);
 
-        // use current frame's jitter
-        // this only matters because we blit the velocity frame buffer to reuse it for the quarter resolution pass
-        // without it, you can use either jittered or unjittered, as long as they match
-        velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
+        if(meshAnimables.runningCount() > 0)
+        {
+            // use current frame's jitter
+            // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
+            // without it, you can use either jittered or unjittered, as long as they match
+            velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
 
-        camera->draw(velocityDrawables);
+            camera->draw(velocityDrawables);
+        }
     }
 
     // render scene at quarter resolution
