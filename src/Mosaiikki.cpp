@@ -19,6 +19,7 @@
 #include <Magnum/PixelFormat.h>
 #include <Magnum/MeshTools/Compile.h>
 #include <Magnum/Math/Color.h>
+#include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Corrade/Utility/Arguments.h>
 #include <Corrade/Utility/Format.h>
 #include <Corrade/PluginManager/Manager.h>
@@ -34,16 +35,19 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     _debug(nullptr),
     _warning(nullptr),
     _error(nullptr),
-    materialShader(NoCreate),
-    velocityShader(NoCreate),
+    coloredMaterialShader(NoCreate),
+    texturedMaterialShader(NoCreate),
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
+    velocityShader(NoCreate),
+    currentFrame(0),
     framebuffers { GL::Framebuffer(NoCreate), GL::Framebuffer(NoCreate) },
     colorAttachments(NoCreate),
     depthAttachments(NoCreate),
-    currentFrame(0),
     depthBlitShader(NoCreate),
+    outputFramebuffer(NoCreate),
+    outputColorAttachment(NoCreate),
     reconstructionShader(NoCreate)
 {
     // Configuration and GL context
@@ -110,7 +114,9 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     // Command line
 
     Utility::Arguments parser;
-    parser.addOption("mesh", "resources/models/Suzanne.glb")
+    parser
+        //.addOption("mesh", "resources/models/Suzanne.gltf")
+        .addOption("mesh", "resources/models/Avocado/Avocado.gltf")
         .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
         .setHelp("font", "GUI font to load")
@@ -154,26 +160,28 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         {
             for(size_t k = 0; k < objectGridSize; k++)
             {
-                Object3D& duplicated = duplicateObject(original, *original.parent());
-                duplicated.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
+                Object3D& duplicate = duplicateObject(original, *original.parent());
+                //duplicate.scale(Vector3(30.0f));
+                duplicate.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
 
-                for(Drawable3D* drawable : featuresInChildren<Drawable3D>(duplicated))
+                for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
                 {
-                    drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+                    //drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
 
                     VelocityDrawable3D* velocityDrawable =
-                        new VelocityDrawable3D(duplicated, velocityShader, drawable->getMesh());
+                        new VelocityDrawable3D(duplicate, velocityShader, drawable->getMesh());
                     velocityDrawables.add(*velocityDrawable);
                 }
 
-                SceneGraph::Animable3D* duplicatedAnimable = new Animable3D(duplicated, Vector3::xAxis(), 3.0f, 5.5f);
+                SceneGraph::Animable3D* duplicatedAnimable = new Animable3D(duplicate, Vector3::xAxis(), 3.0f, 5.5f);
                 meshAnimables.add(*duplicatedAnimable);
                 duplicatedAnimable->setState(SceneGraph::AnimationState::Running);
             }
         }
     }
 
-    for(Drawable3D* drawable : featuresInChildren<Drawable3D>(original))
+    // remove original object that was copied in the grid
+    for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(original))
     {
         drawables.remove(*drawable);
     }
@@ -233,16 +241,29 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         // patch the built-in Phong shader to use sample interpolation
         MagnumShadersSampleInterpolationOverride shaderOverride({ "Phong.vert", "Phong.frag" });
 
-        materialShader = Shaders::Phong(Shaders::Phong::Flag(0), //Shaders::Phong::Flag::DiffuseTexture,
-                                        lightPositions.size());
+        coloredMaterialShader = Shaders::Phong(Shaders::Phong::Flag(0), lightPositions.size());
+
+        texturedMaterialShader =
+            Shaders::Phong(Shaders::Phong::Flag::DiffuseTexture /*| Shaders::Phong::Flag::SpecularTexture*/ |
+                               Shaders::Phong::Flag::NormalTexture,
+                           lightPositions.size());
     }
 
-    materialShader.setAmbientColor(0x111111_rgbf)
+    coloredMaterialShader.setAmbientColor(0x111111_rgbf)
         .setSpecularColor(0xffffff_rgbf)
         .setShininess(80.0f)
         .setLightPositions(lightPositions)
         .setLightColors(lightColors);
-    materialShader.setLabel("Material shader");
+    coloredMaterialShader.setLabel("Material shader (colored)");
+
+    texturedMaterialShader.setAmbientColor(0x111111_rgbf)
+        .setSpecularColor(0xffffff_rgbf)
+        .bindDiffuseTexture(*textures[materials[0]->diffuseTexture()])
+        .bindNormalTexture(*textures[materials[0]->normalTexture()])
+        .setShininess(80.0f)
+        .setLightPositions(lightPositions)
+        .setLightColors(lightColors);
+    texturedMaterialShader.setLabel("Material shader (textured)");
 
     depthBlitShader = DepthBlitShader();
     depthBlitShader.setLabel("Depth blit shader");
@@ -311,6 +332,19 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
         CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Draw) ==
                                 GL::Framebuffer::Status::Complete);
     }
+
+    outputColorAttachment = GL::Texture2D();
+    outputColorAttachment.setStorage(1, GL::TextureFormat::RGBA8, size);
+    outputColorAttachment.setMagnificationFilter(SamplerFilter::Nearest); // no linear filtering for zoomed GUI debug output
+    outputColorAttachment.setLabel("Output color texture");
+
+    outputFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
+    outputFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), outputColorAttachment, 0);
+
+    CORRADE_INTERNAL_ASSERT(outputFramebuffer.checkStatus(GL::FramebufferTarget::Read) ==
+                            GL::Framebuffer::Status::Complete);
+    CORRADE_INTERNAL_ASSERT(outputFramebuffer.checkStatus(GL::FramebufferTarget::Draw) ==
+                            GL::Framebuffer::Status::Complete);
 }
 
 void Mosaiikki::drawEvent()
@@ -407,12 +441,12 @@ void Mosaiikki::drawEvent()
     // undo any jitter
     camera->setProjectionMatrix(unjitteredProjection);
 
-    GL::defaultFramebuffer.bind();
-
     // combine framebuffers
 
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
+
+        outputFramebuffer.bind();
 
         GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
 
@@ -424,6 +458,11 @@ void Mosaiikki::drawEvent()
             .setOptions(options.reconstruction);
         reconstructionShader.draw();
     }
+
+    GL::Framebuffer::blit(
+        outputFramebuffer, GL::defaultFramebuffer, GL::defaultFramebuffer.viewport(), GL::FramebufferBlit::Color);
+
+    GL::defaultFramebuffer.bind();
 
     // render UI
 
@@ -535,6 +574,8 @@ void Mosaiikki::buildUI()
 
 #endif
 
+        ImGui::TextDisabled("Rightclick for zoomed output");
+
         const ImVec2 pos = { ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - margin.x, margin.y };
         ImGui::SetWindowPos(pos);
     }
@@ -549,6 +590,27 @@ void Mosaiikki::buildUI()
         ImGui::SetWindowPos(pos);
     }
     ImGui::End();
+
+    if(!ImGui::GetIO().WantCaptureMouse && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+    {
+        ImGui::Begin("Zoom", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
+        {
+            static const float zoom = 8.0f;
+            static const Vector2 imageSize = { 128.0f, 128.0f };
+            
+            const Vector2 screenSize = Vector2(ImGui::GetIO().DisplaySize);
+            Vector2 uv = (Vector2(ImGui::GetMousePos()) + Vector2(0.5f)) / screenSize;
+            uv.y() = 1.0f - uv.y();
+            const Range2D range = Range2D::fromCenter(uv, imageSize / screenSize / zoom * 0.5f);
+            ImGuiIntegration::image(outputColorAttachment, imageSize, range);
+
+            ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+
+            Vector2 pos = Vector2(ImGui::GetMousePos()) - (Vector2(ImGui::GetWindowSize()) * 0.5f);
+            ImGui::SetWindowPos(ImVec2(pos));
+        }
+        ImGui::End();
+    }
 
     for(size_t i = 0; i < meshAnimables.size(); i++)
     {
@@ -678,8 +740,35 @@ void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectI
         if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
            meshes[objectData->instance()])
         {
-            SceneGraph::Drawable3D* drawable =
-                new Drawable3D(object, materialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
+            const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
+            if(materialId != -1 && materials[materialId])
+            {
+                const Trade::PhongMaterialData& material = *materials[materialId];
+
+                Trade::PhongMaterialData::Flags texturedFlags = Trade::PhongMaterialData::Flag(0);
+                if(texturedMaterialShader.flags() & Shaders::Phong::Flag::DiffuseTexture)
+                    texturedFlags |= Trade::PhongMaterialData::Flag::DiffuseTexture;
+                if(texturedMaterialShader.flags() & Shaders::Phong::Flag::SpecularTexture)
+                    texturedFlags |= Trade::PhongMaterialData::Flag::SpecularTexture;
+                if(texturedMaterialShader.flags() & Shaders::Phong::Flag::NormalTexture)
+                    texturedFlags |= Trade::PhongMaterialData::Flag::NormalTexture;
+
+                if((material.flags() & texturedFlags) == texturedFlags)
+                {
+                    // TODO create TexturedDrawable3D
+                    // have to change duplicateObject and object creation code in the constructor
+                    /*
+                    SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(
+                        object, texturedMaterialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
+                    drawables.add(*drawable);
+                    */
+                }
+            }
+
+            SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(object,
+                                                                     texturedMaterialShader /*coloredMaterialShader*/,
+                                                                     *meshes[objectData->instance()],
+                                                                     0xffffff_rgbf);
             drawables.add(*drawable);
         }
 
@@ -697,10 +786,10 @@ Mosaiikki::Object3D& Mosaiikki::duplicateObject(Object3D& object, Object3D& pare
     Object3D& duplicate = parent.addChild<Object3D>();
     duplicate.setTransformation(object.transformation());
 
-    Drawable3D* drawable = feature<Drawable3D>(object);
+    ColoredDrawable3D* drawable = feature<ColoredDrawable3D>(object);
     if(drawable)
     {
-        Drawable3D* newDrawable = new Drawable3D(*drawable, duplicate);
+        ColoredDrawable3D* newDrawable = new ColoredDrawable3D(*drawable, duplicate);
         drawables.add(*newDrawable);
     }
 

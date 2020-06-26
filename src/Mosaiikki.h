@@ -50,7 +50,7 @@ private:
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
     typedef VelocityDrawable<Transform3D> VelocityDrawable3D;
-    typedef ColoredDrawable<Transform3D> Drawable3D;
+    typedef ColoredDrawable<Transform3D> ColoredDrawable3D;
     typedef SingleAxisTranslationAnimable<Transform3D> Animable3D;
 
     virtual void drawEvent() override;
@@ -88,8 +88,8 @@ private:
     Magnum::SceneGraph::DrawableGroup3D drawables;
     Magnum::SceneGraph::DrawableGroup3D velocityDrawables; // moving objects that contribute to the velocity buffer
 
-    Magnum::Shaders::Phong materialShader;
-    VelocityShader velocityShader;
+    Magnum::Shaders::Phong coloredMaterialShader;
+    Magnum::Shaders::Phong texturedMaterialShader;
 
     // scene
 
@@ -109,20 +109,23 @@ private:
     Magnum::GL::Texture2D velocityAttachment;
     Magnum::GL::Texture2D velocityDepthAttachment;
 
+    VelocityShader velocityShader;
+
     static constexpr size_t FRAMES = 2;
     static constexpr size_t JITTERED_FRAME = 1;
+    size_t currentFrame;
 
     // checkerboard framebuffers
     // quarter size (half width, half height)
-    // WebGL 2 doesn't support multisample textures, only multisample renderbuffers
-    // we can't attach a renderbuffer in the shader so no WebGL support :(
     Magnum::GL::Framebuffer framebuffers[FRAMES];
     Magnum::GL::MultisampleTexture2DArray colorAttachments;
     Magnum::GL::MultisampleTexture2DArray depthAttachments;
 
-    size_t currentFrame;
-
     DepthBlitShader depthBlitShader;
+
+    Magnum::GL::Framebuffer outputFramebuffer;
+    Magnum::GL::Texture2D outputColorAttachment;
+
     ReconstructionShader reconstructionShader;
 
     Options options;
