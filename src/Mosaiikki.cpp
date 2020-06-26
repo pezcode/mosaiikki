@@ -633,7 +633,12 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
                         continue;
                 }
                 GL::Texture2D texture;
-                texture.setMagnificationFilter(textureData->magnificationFilter())
+                texture
+                    // lod calculation is something like log2(max(len(dFdx(uv)), len(dFdy(uv)))
+                    // halving the rendering resolution doubles the derivate length
+                    // offset to lower mip level for full resolution (log2(sqrt(2)) = 0.5)
+                    .setLodBias(-0.5f)
+                    .setMagnificationFilter(textureData->magnificationFilter())
                     .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
                     .setWrapping(textureData->wrapping().xy())
                     .setStorage(Math::log2(imageData->size().max()) + 1, format, imageData->size())
