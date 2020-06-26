@@ -24,7 +24,6 @@ DepthBlitShader::DepthBlitShader()
     vert.addSource(rs.get("DepthBlitShader.vert"));
     frag.addSource(rs.get("DepthBlitShader.frag"));
 
-    // possibly parallel compilation
     bool compiled = GL::Shader::compile({ vert, frag });
     CORRADE_ASSERT(compiled, "Failed to compile DepthBlitShader", );
     attachShaders({ vert, frag });

@@ -1,6 +1,7 @@
 #include "Mosaiikki.h"
 
 #include "Feature.h"
+#include "MagnumShadersSampleInterpolationOverride.h"
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Context.h>
 #include <Magnum/GL/Extensions.h>
@@ -109,7 +110,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     // Command line
 
     Utility::Arguments parser;
-    parser.addOption("mesh", "resources/models/Suzanne.gltf")
+    parser.addOption("mesh", "resources/models/Suzanne.glb")
         .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
         .setHelp("font", "GUI font to load")
@@ -228,8 +229,14 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     velocityShader = VelocityShader();
 
-    materialShader = Shaders::Phong(Shaders::Phong::Flag(0), //Shaders::Phong::Flag::DiffuseTexture,
-                                    lightPositions.size());
+    {
+        // patch the built-in Phong shader to use sample interpolation
+        MagnumShadersSampleInterpolationOverride shaderOverride({ "Phong.vert", "Phong.frag" });
+
+        materialShader = Shaders::Phong(Shaders::Phong::Flag(0), //Shaders::Phong::Flag::DiffuseTexture,
+                                        lightPositions.size());
+    }
+
     materialShader.setAmbientColor(0x111111_rgbf)
         .setSpecularColor(0xffffff_rgbf)
         .setShininess(80.0f)
@@ -557,8 +564,6 @@ void Mosaiikki::buildUI()
 
 bool Mosaiikki::loadScene(const char* file, Object3D& parent)
 {
-    // TODO clear
-
     // load importer
 
     PluginManager::Manager<Trade::AbstractImporter> manager;
@@ -662,7 +667,7 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
 void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectId, Object3D& parent)
 {
     // meshes are compiled and accessible at this point
-    // TODO materials
+    // TODO textured Phong
 
     Containers::Pointer<Trade::ObjectData3D> objectData = importer.object3D(objectId);
     if(objectData)

@@ -5,7 +5,6 @@
 #include "VelocityDrawable.h"
 #include "ColoredDrawable.h"
 #include "SingleAxisTranslationAnimable.h"
-#include "Shaders/MaterialShader.h"
 #include "Shaders/ReconstructionShader.h"
 #include "Shaders/VelocityShader.h"
 #include "Shaders/DepthBlitShader.h"

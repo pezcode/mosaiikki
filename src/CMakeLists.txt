@@ -11,8 +11,8 @@ set(SOURCES
 	SingleAxisTranslationAnimable.h
 	Feature.h
 	Options.h
-	Shaders/MaterialShader.h
-	Shaders/MaterialShader.cpp
+	MagnumShadersSampleInterpolationOverride.h
+	MagnumShadersSampleInterpolationOverride.cpp
 	Shaders/ReconstructionShader.h
 	Shaders/ReconstructionShader.cpp
 	Shaders/VelocityShader.h
@@ -22,8 +22,6 @@ set(SOURCES
 )
 
 set(SHADERS
-	Shaders/MaterialShader.vert
-	Shaders/MaterialShader.frag
 	Shaders/ReconstructionShader.vert
 	Shaders/ReconstructionShader.frag
 	Shaders/VelocityShader.vert
