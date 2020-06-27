@@ -55,6 +55,7 @@ private:
 
     virtual void drawEvent() override;
     virtual void viewportEvent(ViewportEvent& event) override;
+    virtual void keyReleaseEvent(KeyEvent& event) override;
     virtual void buildUI() override;
 
     bool loadScene(const char* file, Object3D& parent);
@@ -102,6 +103,9 @@ private:
     static constexpr size_t objectGridSize = 6;
     Corrade::Containers::Array<Magnum::Vector3> lightPositions;
     Corrade::Containers::Array<Magnum::Color4> lightColors;
+
+    bool paused;
+    bool step;
 
     // checkerboard rendering
 

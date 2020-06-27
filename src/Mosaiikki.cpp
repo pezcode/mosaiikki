@@ -37,6 +37,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     _error(nullptr),
     coloredMaterialShader(NoCreate),
     texturedMaterialShader(NoCreate),
+    paused(false),
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
@@ -115,8 +116,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     Utility::Arguments parser;
     parser
-        //.addOption("mesh", "resources/models/Suzanne.gltf")
-        .addOption("mesh", "resources/models/Avocado/Avocado.gltf")
+        .addOption("mesh", "resources/models/Suzanne.glb")
+        //.addOption("mesh", "resources/models/Avocado/Avocado.gltf")
         .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
         .setHelp("font", "GUI font to load")
@@ -140,7 +141,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     camera->setViewport(framebufferSize());
     updateProjectionMatrix(*camera);
 
-    SceneGraph::Animable3D* animable = new Animable3D(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
+    SceneGraph::Animable3D* animable = new Animable3D(
+        cameraObject, Vector3::xAxis(), 3.0f, -5.5f); //new Animable3D(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
     cameraAnimables.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
@@ -150,7 +152,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     Object3D& original = manipulator.addChild<Object3D>();
     std::string sceneFile = parser.value<std::string>("mesh");
-    loadScene(sceneFile.c_str(), original);
+    bool loaded = loadScene(sceneFile.c_str(), original);
+    CORRADE_ASSERT(loaded, "Failed to load scene", );
 
     Vector3 center((float)(objectGridSize - 1) / 2.0f);
 
@@ -166,7 +169,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
                 for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
                 {
-                    //drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+                    drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
 
                     VelocityDrawable3D* velocityDrawable =
                         new VelocityDrawable3D(duplicate, velocityShader, drawable->getMesh());
@@ -258,8 +261,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     texturedMaterialShader.setAmbientColor(0x111111_rgbf)
         .setSpecularColor(0xffffff_rgbf)
-        .bindDiffuseTexture(*textures[materials[0]->diffuseTexture()])
-        .bindNormalTexture(*textures[materials[0]->normalTexture()])
+        //.bindDiffuseTexture(*textures[materials[0]->diffuseTexture()])
+        //.bindNormalTexture(*textures[materials[0]->normalTexture()])
         .setShininess(80.0f)
         .setLightPositions(lightPositions)
         .setLightColors(lightColors);
@@ -335,7 +338,8 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
 
     outputColorAttachment = GL::Texture2D();
     outputColorAttachment.setStorage(1, GL::TextureFormat::RGBA8, size);
-    outputColorAttachment.setMagnificationFilter(SamplerFilter::Nearest); // no linear filtering for zoomed GUI debug output
+    outputColorAttachment.setMagnificationFilter(
+        SamplerFilter::Nearest); // no linear filtering for zoomed GUI debug output
     outputColorAttachment.setLabel("Output color texture");
 
     outputFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
@@ -351,132 +355,129 @@ void Mosaiikki::drawEvent()
 {
     profiler.beginFrame();
 
-    meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
-    cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
-
-    constexpr GL::Renderer::DepthFunction depthFunction = GL::Renderer::DepthFunction::LessOrEqual; // default: Less
-
-    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
-    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
-    GL::Renderer::setDepthFunction(depthFunction);
-
-    const Matrix4 unjitteredProjection = camera->projectionMatrix();
-
-    static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
-    Array<FRAMES, Matrix4> matrices;
-    // jitter viewport half a pixel to the right = one pixel in the full-res framebuffer
-    // = width of NDC divided by full-res pixel count
-    const float offset = 2.0f / camera->viewport().x();
-    matrices[JITTERED_FRAME] = Matrix4::translation(Vector3::xAxis(offset)) * unjitteredProjection;
-    matrices[1 - JITTERED_FRAME] = unjitteredProjection;
-
-    // fill velocity buffer
-
-    if(options.reconstruction.createVelocityBuffer)
+    if(!paused || step)
     {
-        GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Velocity buffer");
+        meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
+        cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
-        velocityFramebuffer.bind();
-        velocityFramebuffer.clearColor(0, 0_rgbf);
-        velocityFramebuffer.clearDepth(1.0f);
+        constexpr GL::Renderer::DepthFunction depthFunction = GL::Renderer::DepthFunction::LessOrEqual; // default: Less
 
-        if(meshAnimables.runningCount() > 0)
+        GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+        GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+        GL::Renderer::setDepthFunction(depthFunction);
+
+        const Matrix4 unjitteredProjection = camera->projectionMatrix();
+
+        static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
+        Array<FRAMES, Matrix4> matrices;
+        // jitter viewport half a pixel to the right = one pixel in the full-res framebuffer
+        // = width of NDC divided by full-res pixel count
+        const float offset = 2.0f / camera->viewport().x();
+        matrices[JITTERED_FRAME] = Matrix4::translation(Vector3::xAxis(offset)) * unjitteredProjection;
+        matrices[1 - JITTERED_FRAME] = unjitteredProjection;
+
+        // fill velocity buffer
+
+        if(options.reconstruction.createVelocityBuffer)
         {
-            // use current frame's jitter
-            // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
-            // without it, you can use either jittered or unjittered, as long as they match
-            velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
+            GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Velocity buffer");
 
-            camera->draw(velocityDrawables);
-        }
-    }
+            velocityFramebuffer.bind();
+            velocityFramebuffer.clearColor(0, 0_rgbf);
+            velocityFramebuffer.clearDepth(1.0f);
 
-    // render scene at quarter resolution
+            if(meshAnimables.runningCount() > 0)
+            {
+                // use current frame's jitter
+                // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
+                // without it, you can use either jittered or unjittered, as long as they match
+                velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
 
-    {
-        GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (quarter-res)");
-
-        GL::Framebuffer& framebuffer = framebuffers[currentFrame];
-        framebuffer.bind();
-
-        const Color3 clearColor = 0x111111_rgbf;
-        framebuffer.clearColor(0, clearColor);
-
-        // copy and reuse velocity depth buffer
-        if(options.reconstruction.createVelocityBuffer && options.reuseVelocityDepth)
-        {
-            GL::Renderer::setDepthFunction(
-                GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
-            GL::Renderer::setColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // disable color writing
-
-            // blit to quarter res with max filter
-            depthBlitShader.bindDepth(velocityDepthAttachment);
-            depthBlitShader.draw();
-
-            GL::Renderer::setColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // enable color writing
-            GL::Renderer::setDepthFunction(depthFunction);                  // restore depth test
-        }
-        else
-        {
-            framebuffer.clearDepth(1.0f);
+                camera->draw(velocityDrawables);
+            }
         }
 
-        // run fragment shader for each sample
-        GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
-        GL::Renderer::setMinSampleShading(1.0f);
+        // render scene at quarter resolution
 
-        // TODO
-        // force interpolation to each sample position, not the fragment center
-        // https://www.khronos.org/opengl/wiki/Type_Qualifier_(GLSL)
-        // does sample shading already do this?
-        // this requires us to roll our own (Phong) shader
+        {
+            GL::DebugGroup group(GL::DebugGroup::Source::Application, 0, "Scene rendering (quarter-res)");
 
-        // jitter camera if necessary
-        camera->setProjectionMatrix(matrices[currentFrame]);
-        camera->draw(drawables);
+            GL::Framebuffer& framebuffer = framebuffers[currentFrame];
+            framebuffer.bind();
 
-        GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
-    }
+            const Color3 clearColor = 0x111111_rgbf;
+            framebuffer.clearColor(0, clearColor);
 
-    // undo any jitter
-    camera->setProjectionMatrix(unjitteredProjection);
+            // copy and reuse velocity depth buffer
+            if(options.reconstruction.createVelocityBuffer && options.reuseVelocityDepth)
+            {
+                GL::Renderer::setDepthFunction(
+                    GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
+                GL::Renderer::setColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // disable color writing
 
-    // combine framebuffers
+                // blit to quarter res with max filter
+                depthBlitShader.bindDepth(velocityDepthAttachment);
+                depthBlitShader.draw();
 
-    {
-        GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
+                GL::Renderer::setColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // enable color writing
+                GL::Renderer::setDepthFunction(depthFunction);                  // restore depth test
+            }
+            else
+            {
+                framebuffer.clearDepth(1.0f);
+            }
 
-        outputFramebuffer.bind();
+            // run fragment shader for each sample
+            GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
+            GL::Renderer::setMinSampleShading(1.0f);
 
-        GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+            // jitter camera if necessary
+            camera->setProjectionMatrix(matrices[currentFrame]);
+            camera->draw(drawables);
 
-        reconstructionShader.bindColor(colorAttachments)
-            .bindDepth(depthAttachments)
-            .bindVelocity(velocityAttachment)
-            .setCurrentFrame(currentFrame)
-            .setCameraInfo(*camera, cameraNear, cameraFar)
-            .setOptions(options.reconstruction);
-        reconstructionShader.draw();
+            GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
+        }
+
+        // undo any jitter
+        camera->setProjectionMatrix(unjitteredProjection);
+
+        // combine framebuffers
+
+        {
+            GL::DebugGroup group(GL::DebugGroup::Source::Application, 1, "Checkerboard resolve");
+
+            outputFramebuffer.bind();
+
+            GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+
+            reconstructionShader.bindColor(colorAttachments)
+                .bindDepth(depthAttachments)
+                .bindVelocity(velocityAttachment)
+                .setCurrentFrame(currentFrame)
+                .setCameraInfo(*camera, cameraNear, cameraFar)
+                .setOptions(options.reconstruction);
+            reconstructionShader.draw();
+        }
+
+        // housekeeping
+
+        currentFrame = (currentFrame + 1) % FRAMES;
+        oldMatrices = matrices;
+        step = false;
     }
 
     GL::Framebuffer::blit(
         outputFramebuffer, GL::defaultFramebuffer, GL::defaultFramebuffer.viewport(), GL::FramebufferBlit::Color);
 
-    GL::defaultFramebuffer.bind();
-
     // render UI
+
+    GL::defaultFramebuffer.bind();
 
     {
         GL::DebugGroup group(GL::DebugGroup::Source::Application, 2, "imgui");
 
         ImGuiApplication::drawEvent();
     }
-
-    // housekeeping
-
-    currentFrame = (currentFrame + 1) % FRAMES;
-
-    oldMatrices = matrices;
 
     timeline.nextFrame();
     profiler.endFrame();
@@ -487,10 +488,28 @@ void Mosaiikki::drawEvent()
 
 void Mosaiikki::viewportEvent(ViewportEvent& event)
 {
+    ImGuiApplication::viewportEvent(event);
+
     resizeFramebuffers(event.framebufferSize());
     camera->setViewport(event.framebufferSize());
     updateProjectionMatrix(*camera);
-    ImGuiApplication::viewportEvent(event);
+}
+
+void Mosaiikki::keyReleaseEvent(KeyEvent& event)
+{
+    ImGuiApplication::keyReleaseEvent(event);
+    if(event.isAccepted())
+        return;
+
+    switch(event.key())
+    {
+        case KeyEvent::Key::Space:
+            paused = !paused;
+            break;
+        case KeyEvent::Key::Right:
+            step = true;
+            break;
+    }
 }
 
 void Mosaiikki::buildUI()
@@ -572,6 +591,21 @@ void Mosaiikki::buildUI()
             ImGui::EndTooltip();
         }
 
+        ImGui::Separator();
+
+        if(ImGui::Button(paused ? ">" : "||"))
+            paused = !paused;
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip(paused ? "Continue" : "Resume");
+        ImGui::SameLine();
+        {
+            ImGuiDisabledZone zone(!paused);
+            if(ImGui::Button("|>"))
+                step = true;
+            if(ImGui::IsItemHovered())
+                ImGui::SetTooltip("Next frame");
+        }
+
 #endif
 
         ImGui::TextDisabled("Rightclick for zoomed output");
@@ -597,7 +631,7 @@ void Mosaiikki::buildUI()
         {
             static const float zoom = 8.0f;
             static const Vector2 imageSize = { 128.0f, 128.0f };
-            
+
             const Vector2 screenSize = Vector2(ImGui::GetIO().DisplaySize);
             Vector2 uv = (Vector2(ImGui::GetMousePos()) + Vector2(0.5f)) / screenSize;
             uv.y() = 1.0f - uv.y();
@@ -740,6 +774,7 @@ void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectI
         if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
            meshes[objectData->instance()])
         {
+            bool textured = false;
             const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
             if(materialId != -1 && materials[materialId])
             {
@@ -753,23 +788,24 @@ void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectI
                 if(texturedMaterialShader.flags() & Shaders::Phong::Flag::NormalTexture)
                     texturedFlags |= Trade::PhongMaterialData::Flag::NormalTexture;
 
-                if((material.flags() & texturedFlags) == texturedFlags)
+                if(texturedFlags && (material.flags() & texturedFlags) == texturedFlags)
                 {
                     // TODO create TexturedDrawable3D
                     // have to change duplicateObject and object creation code in the constructor
-                    /*
+
                     SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(
                         object, texturedMaterialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
                     drawables.add(*drawable);
-                    */
+                    textured = true;
                 }
             }
 
-            SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(object,
-                                                                     texturedMaterialShader /*coloredMaterialShader*/,
-                                                                     *meshes[objectData->instance()],
-                                                                     0xffffff_rgbf);
-            drawables.add(*drawable);
+            if(!textured)
+            {
+                SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(
+                    object, coloredMaterialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
+                drawables.add(*drawable);
+            }
         }
 
         for(UnsignedInt childObjectId : objectData->children())
