@@ -1,0 +1,27 @@
+name: Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        config: [Debug, Release]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Dependencies
+      if: startsWith(matrix.os,'ubuntu')
+      run: |
+        sudo apt-get install xorg-dev libglu1-mesa-dev
+    - name: Generate
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=${{ matrix.config }} ..
+        cd ..
+    - name: Build
+      run: |
+        cmake --build build/ --parallel --config ${{ matrix.config }}
