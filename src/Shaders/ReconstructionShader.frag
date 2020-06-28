@@ -241,7 +241,7 @@ float fetchDepthAverage(ivec2 coords, int quadrant)
 ivec2 reprojectPixel(ivec2 coords, float depth)
 {
 	vec2 screen = vec2(coords) + 0.5; // gl_FragCoord x/y are located at half-pixel centers, undo the flooring
-	vec3 ndc = vec3(screen / viewport, depth) * 2.0 - 1.0;
+	vec3 ndc = vec3(screen / viewport, depth) * 2.0 - 1.0; // z: [0;1] -> [-1;1]
 	vec4 clip = vec4(ndc, 1.0);
 	vec4 world = invViewProjection * clip;
 	world /= world.w;
@@ -300,8 +300,11 @@ void main()
 		return;
 	}
 
+	bool possiblyOccluded = false;
+
 	// find pixel position in previous frame
-	ivec2 oldCoords = ivec2(0, 0);
+
+	ivec2 oldCoords = coords;
 	bool velocityFromDepth = true;
 
 	// for fully general results, sample from a velocity buffer
@@ -315,19 +318,29 @@ void main()
 			oldCoords = ivec2(floor(gl_FragCoord.xy - offset));
 			velocityFromDepth = false;
 		}
+		else
+		{
+			// force occlusion check to prevent ghosting when the previously
+			// occluded pixel is at the far plane
+			// if we only check for quarter-pixel movement, we'd see (0,0) movement in
+			// that case and directly use the old frame's, but we need to average
+			possiblyOccluded = true;
+		}
 	}
 
 	// if we're not using a velocity buffer or the object is static, reproject using the camera transformation
 	if(velocityFromDepth)
 	{
 		float z = fetchQuadrant(depth, halfCoords, quadrant).x;
-		oldCoords = reprojectPixel(coords, z);
+		if(z < 1.0)
+			oldCoords = reprojectPixel(coords, z);
+		else
+			possiblyOccluded = true;
 	}
 
+	// is the previous position outside the screen?
 	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
 	{
-		// previous position is outside the screen
-		// -> interpolate
 		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
 			fragColor = vec4(0.0, 1.0, 0.0, 1.0);
 		else
@@ -338,12 +351,12 @@ void main()
 	ivec2 oldHalfCoords = oldCoords >> 1;
 	int oldQuadrant = calculateQuadrant(oldCoords);
 
-	// is the previous pixel in an old frame quadrant?
+	// is the previous position not in an old frame quadrant?
+	// this happens when any movement cancelled the jitter
+	// -> there's no shading information
 	ivec2 oldQuadrants = FRAME_QUADRANTS[1 - currentFrame];
 	if(!any(equal(ivec2(oldQuadrant), oldQuadrants)))
 	{
-		// nope, movement cancelled the jitter so there's no shading information
-		// -> interpolate
 		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
 			fragColor = vec4(0.0, 0.0, 1.0, 1.0);
 		else
@@ -351,9 +364,15 @@ void main()
 		return;
 	}
 
-	// check if old frame's pixel is occluded after movement
+	// check for occlusion if the old position was in a different quarter-res pixel
+	if(any(greaterThan(abs(oldHalfCoords - halfCoords), ivec2(0))))
+	{
+		possiblyOccluded = true;
+	}
+
+	// check for occlusion
 	bool occluded = false;
-	if(any(greaterThan(abs(oldHalfCoords - halfCoords), ivec2(0)))) // old pos was in a different quarter-res pixel
+	if(possiblyOccluded)
 	{
 		// simple variant: always assume occlusion
 		if(OPTION_SET(ASSUME_OCCLUSION))
@@ -379,5 +398,6 @@ void main()
 		return;
 	}
 
+	// no occlusion, directly use the old color
 	fragColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
 }

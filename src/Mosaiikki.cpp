@@ -127,6 +127,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // UI
 
+    ImGui::StyleColorsDark();
+
     std::string fontFile = parser.value<std::string>("font");
     setFont(fontFile.c_str(), 15.0f);
 
@@ -545,12 +547,11 @@ void Mosaiikki::buildUI()
 
         {
             ImGuiDisabledZone zone(options.reconstruction.assumeOcclusion);
-            ImGui::Indent();
-            ImGui::SetNextItemWidth(ImGui::CalcItemWidth() / 2.0f);
+            ImGui::SetNextItemWidth(ImGui::GetWindowWidth() /
+                                    2.0f); // slider size (without label)
             ImGui::SliderFloat("Depth tolerance", &options.reconstruction.depthTolerance, 0.0f, 0.5f, "%.3f");
             if(ImGui::IsItemHovered())
                 ImGui::SetTooltip("Maximum allowed view space depth difference before assuming occlusion");
-            ImGui::Unindent();
         }
 
 #ifdef CORRADE_IS_DEBUG_BUILD
@@ -558,7 +559,7 @@ void Mosaiikki::buildUI()
         ImGui::Separator();
 
         static const char* const debugSamplesOptions[] = { "Combined", "Even", "Odd (jittered)" };
-        ImGui::SetNextItemWidth(ImGui::CalcItemWidth() / 2.0f);
+        ImGui::SetNextItemWidth(ImGui::GetWindowWidth() * 0.5f);
         ImGui::Combo("Show samples",
                      (int*)&options.reconstruction.debug.showSamples,
                      debugSamplesOptions,
@@ -591,22 +592,22 @@ void Mosaiikki::buildUI()
             ImGui::EndTooltip();
         }
 
+#endif
+
         ImGui::Separator();
 
-        if(ImGui::Button(paused ? ">" : "||"))
+        if(ImGui::Button(paused ? "> Resume" : "|| Pause", { ImGui::GetWindowWidth() * 0.3f, 0.0f }))
             paused = !paused;
         if(ImGui::IsItemHovered())
-            ImGui::SetTooltip(paused ? "Continue" : "Resume");
+            ImGui::SetTooltip(paused ? "Resume" : "Pause");
         ImGui::SameLine();
         {
             ImGuiDisabledZone zone(!paused);
-            if(ImGui::Button("|>"))
+            if(ImGui::Button(">| Next frame"))
                 step = true;
             if(ImGui::IsItemHovered())
                 ImGui::SetTooltip("Next frame");
         }
-
-#endif
 
         ImGui::TextDisabled("Rightclick for zoomed output");
 
@@ -630,7 +631,7 @@ void Mosaiikki::buildUI()
         ImGui::Begin("Zoom", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
         {
             static const float zoom = 8.0f;
-            static const Vector2 imageSize = { 128.0f, 128.0f };
+            static const Vector2 imageSize = { 256.0f, 256.0f };
 
             const Vector2 screenSize = Vector2(ImGui::GetIO().DisplaySize);
             Vector2 uv = (Vector2(ImGui::GetMousePos()) + Vector2(0.5f)) / screenSize;
