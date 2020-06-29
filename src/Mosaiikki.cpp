@@ -21,7 +21,7 @@
 #include <Magnum/Math/Color.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Corrade/Utility/Arguments.h>
-#include <Corrade/Utility/Format.h>
+#include <Corrade/Utility/FormatStl.h>
 #include <Corrade/PluginManager/Manager.h>
 
 using namespace Magnum;
@@ -38,6 +38,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     coloredMaterialShader(NoCreate),
     texturedMaterialShader(NoCreate),
     paused(false),
+    advanceOneFrame(false),
+    hideUI(false),
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
@@ -80,13 +82,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample);      // core in 3.2
 
-    // ARB extension is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
-    bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
-    bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
-    bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
-    // Haven't found an Intel extension although D3D12 support for it exists
-
-    CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found", );
+    GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
 
     // Debug output
 
@@ -165,8 +161,11 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         {
             for(size_t k = 0; k < objectGridSize; k++)
             {
+                // TODO for some reason velocity drawables are flipped 180° around y
+                // their transformation doesn't match the normal drawables
                 Object3D& duplicate = duplicateObject(original, *original.parent());
-                //duplicate.scale(Vector3(30.0f));
+                //duplicate.scale(Vector3(10.0f));
+                //duplicate.rotate(90.0_degf, Vector3::yAxis());
                 duplicate.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
 
                 for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
@@ -195,48 +194,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     resizeFramebuffers(framebufferSize());
 
-    GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
-    GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
-
-    framebuffers[0].bind();
-
-    // set explicit sample locations
-    // OpenGL does not specify them, so we have to do it manually using one of the three extensions
-
-    const GLsizei SAMPLE_COUNT = 2;
-    Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
-
-    if(ext_arb)
-    {
-        glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
-    }
-    else if(ext_nv)
-    {
-        glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
-    }
-    else if(ext_amd)
-    {
-        for(GLuint i = 0; i < SAMPLE_COUNT; i++)
-        {
-            glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, samplePositions[i].data());
-        }
-    }
-
-    // read and report sample locations
-    // just a sanity check, really
-    for(GLuint i = 0; i < SAMPLE_COUNT; i++)
-    {
-        // GL_SAMPLE_POSITION reads the default sample location with ARB/NV_sample_locations
-        GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
-                              : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
-        glGetMultisamplefv(name, i, samplePositions[i].data());
-    }
-
-    Debug() << "MSAA 2x sample positions:";
-    for(Vector2 pos : samplePositions)
-    {
-        Debug() << pos;
-    }
+    setSamplePositions();
 
     // Shaders
 
@@ -328,9 +286,7 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
         framebuffers[i] = GL::Framebuffer({ { 0, 0 }, quarterSize });
         framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
         framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
-
-        std::string label(Utility::format("Framebuffer {} (quarter-res)", i + 1));
-        framebuffers[i].setLabel(label);
+        framebuffers[i].setLabel(Utility::formatString("Framebuffer {} (quarter-res)", i + 1));
 
         CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) ==
                                 GL::Framebuffer::Status::Complete);
@@ -340,8 +296,10 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
 
     outputColorAttachment = GL::Texture2D();
     outputColorAttachment.setStorage(1, GL::TextureFormat::RGBA8, size);
-    outputColorAttachment.setMagnificationFilter(
-        SamplerFilter::Nearest); // no linear filtering for zoomed GUI debug output
+    // filter and wrapping for zoomed GUI debug output
+    outputColorAttachment.setMagnificationFilter(SamplerFilter::Nearest);
+    outputColorAttachment.setWrapping({ GL::SamplerWrapping::ClampToBorder, GL::SamplerWrapping::ClampToBorder });
+    outputColorAttachment.setBorderColor(0x000000_rgbf);
     outputColorAttachment.setLabel("Output color texture");
 
     outputFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
@@ -353,12 +311,71 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
                             GL::Framebuffer::Status::Complete);
 }
 
+void Mosaiikki::setSamplePositions()
+{
+    // ARB extension is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
+    bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
+    bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
+    bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
+    // Haven't found an Intel extension although D3D12 support for it exists
+
+    CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found", );
+
+    GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
+
+    framebuffers[0].bind();
+
+    // set explicit sample locations
+    // OpenGL does not specify them, so we have to do it manually using one of the three extensions
+
+    const GLsizei SAMPLE_COUNT = 2;
+    Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
+
+    if(ext_arb)
+    {
+        glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
+    }
+    else if(ext_nv)
+    {
+        glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
+    }
+    else if(ext_amd)
+    {
+        for(GLuint i = 0; i < SAMPLE_COUNT; i++)
+        {
+            glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, samplePositions[i].data());
+        }
+    }
+
+    // read back and report actual sample locations (could be quantized)
+    // just a sanity check, really
+    for(GLuint i = 0; i < SAMPLE_COUNT; i++)
+    {
+        // GL_SAMPLE_POSITION reads the default sample location with ARB/NV_sample_locations
+        GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
+                              : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
+        glGetMultisamplefv(name, i, samplePositions[i].data());
+    }
+
+    Debug() << "MSAA 2x sample positions:";
+    for(Vector2 pos : samplePositions)
+    {
+        Debug() << pos;
+    }
+
+    GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
+
+    GL::defaultFramebuffer.bind();
+}
+
 void Mosaiikki::drawEvent()
 {
     profiler.beginFrame();
 
-    if(!paused || step)
+    if(!paused || advanceOneFrame)
     {
+        advanceOneFrame = false;
+
         meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
         cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
@@ -410,6 +427,10 @@ void Mosaiikki::drawEvent()
             const Color3 clearColor = 0x111111_rgbf;
             framebuffer.clearColor(0, clearColor);
 
+            // run fragment shader for each sample
+            GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
+            GL::Renderer::setMinSampleShading(1.0f);
+
             // copy and reuse velocity depth buffer
             if(options.reconstruction.createVelocityBuffer && options.reuseVelocityDepth)
             {
@@ -428,10 +449,6 @@ void Mosaiikki::drawEvent()
             {
                 framebuffer.clearDepth(1.0f);
             }
-
-            // run fragment shader for each sample
-            GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
-            GL::Renderer::setMinSampleShading(1.0f);
 
             // jitter camera if necessary
             camera->setProjectionMatrix(matrices[currentFrame]);
@@ -465,7 +482,6 @@ void Mosaiikki::drawEvent()
 
         currentFrame = (currentFrame + 1) % FRAMES;
         oldMatrices = matrices;
-        step = false;
     }
 
     GL::Framebuffer::blit(
@@ -509,13 +525,19 @@ void Mosaiikki::keyReleaseEvent(KeyEvent& event)
             paused = !paused;
             break;
         case KeyEvent::Key::Right:
-            step = true;
+            advanceOneFrame = true;
+            break;
+        case KeyEvent::Key::Tab:
+            hideUI = !hideUI;
             break;
     }
 }
 
 void Mosaiikki::buildUI()
 {
+    if(hideUI)
+        return;
+
     //ImGui::ShowDemoWindow();
 
     const ImVec2 margin = { 5.0f, 5.0f };
@@ -547,8 +569,7 @@ void Mosaiikki::buildUI()
 
         {
             ImGuiDisabledZone zone(options.reconstruction.assumeOcclusion);
-            ImGui::SetNextItemWidth(ImGui::GetWindowWidth() /
-                                    2.0f); // slider size (without label)
+            ImGui::SetNextItemWidth(ImGui::GetWindowWidth() / 2.0f); // slider size (without label)
             ImGui::SliderFloat("Depth tolerance", &options.reconstruction.depthTolerance, 0.0f, 0.5f, "%.3f");
             if(ImGui::IsItemHovered())
                 ImGui::SetTooltip("Maximum allowed view space depth difference before assuming occlusion");
@@ -596,20 +617,24 @@ void Mosaiikki::buildUI()
 
         ImGui::Separator();
 
-        if(ImGui::Button(paused ? "> Resume" : "|| Pause", { ImGui::GetWindowWidth() * 0.3f, 0.0f }))
-            paused = !paused;
-        if(ImGui::IsItemHovered())
-            ImGui::SetTooltip(paused ? "Resume" : "Pause");
-        ImGui::SameLine();
+        if(ImGui::CollapsingHeader("Controls"))
         {
-            ImGuiDisabledZone zone(!paused);
-            if(ImGui::Button(">| Next frame"))
-                step = true;
-            if(ImGui::IsItemHovered())
-                ImGui::SetTooltip("Next frame");
-        }
+            ImGui::Text("Space");
+            ImGui::SameLine(ImGui::GetWindowWidth() * 0.45f);
+            ImGui::Text("Pause/Continue");
 
-        ImGui::TextDisabled("Rightclick for zoomed output");
+            ImGui::Text("Right Arrow");
+            ImGui::SameLine(ImGui::GetWindowWidth() * 0.45f);
+            ImGui::Text("Next frame");
+
+            ImGui::Text("Right Mouse");
+            ImGui::SameLine(ImGui::GetWindowWidth() * 0.45f);
+            ImGui::Text("Zoom");
+
+            ImGui::Text("Tab");
+            ImGui::SameLine(ImGui::GetWindowWidth() * 0.45f);
+            ImGui::Text("Hide UI");
+        }
 
         const ImVec2 pos = { ImGui::GetIO().DisplaySize.x - ImGui::GetWindowSize().x - margin.x, margin.y };
         ImGui::SetWindowPos(pos);
@@ -620,6 +645,8 @@ void Mosaiikki::buildUI()
         "Stats", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     {
         ImGui::Text("%s", profiler.statistics().c_str());
+        if(paused)
+            ImGui::TextColored(ImVec4(Color4::yellow()), "PAUSED");
 
         const ImVec2 pos = { margin.x, margin.y };
         ImGui::SetWindowPos(pos);

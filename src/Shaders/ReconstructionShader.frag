@@ -324,6 +324,12 @@ void main()
 			// occluded pixel is at the far plane
 			// if we only check for quarter-pixel movement, we'd see (0,0) movement in
 			// that case and directly use the old frame's, but we need to average
+
+			// TODO this causes jittering around object edges for perfectly still scenes
+			// because now the average is taken even if there is nothing being occluded
+
+			// similarly for velocityFromDepth, where a pixel at the far plane is close enough
+			// to fail the depth occlusion check because it's in the neighborhood of the edge
 			possiblyOccluded = true;
 		}
 	}

@@ -64,6 +64,7 @@ private:
 
     static void updateProjectionMatrix(Magnum::SceneGraph::Camera3D& camera);
     void resizeFramebuffers(Magnum::Vector2i frameBufferSize);
+    void setSamplePositions();
 
     // debug output
 
@@ -94,7 +95,7 @@ private:
 
     // scene
 
-    static constexpr float cameraNear = 0.5f;
+    static constexpr float cameraNear = 1.0f;
     static constexpr float cameraFar = 50.0f;
 
     Magnum::Timeline timeline;
@@ -105,7 +106,9 @@ private:
     Corrade::Containers::Array<Magnum::Color4> lightColors;
 
     bool paused;
-    bool step;
+    bool advanceOneFrame;
+
+    bool hideUI;
 
     // checkerboard rendering
 

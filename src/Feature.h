@@ -44,6 +44,7 @@ std::vector<F*> featuresInChildren(Magnum::SceneGraph::Object<T>& object, std::v
     if(list == nullptr)
     {
         // initial object, don't add features
+        // TODO this is a memory leak
         result = new std::vector<F*>();
     }
     else
