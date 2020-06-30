@@ -596,17 +596,17 @@ void Mosaiikki::buildUI()
         {
             ImGui::BeginTooltip();
             {
-                ImGui::ColorButton("red", ImVec4(Color4::red()));
+                ImGui::ColorButton("magenta", ImVec4(Color4::magenta()));
                 ImGui::SameLine();
                 ImGui::Text("Old pixel was occluded");
             }
             {
-                ImGui::ColorButton("green", ImVec4(Color4::green()));
+                ImGui::ColorButton("yellow", ImVec4(Color4::yellow()));
                 ImGui::SameLine();
                 ImGui::Text("Old pixel position is outside the screen");
             }
             {
-                ImGui::ColorButton("blue", ImVec4(Color4::blue()));
+                ImGui::ColorButton("cyan", ImVec4(Color4::cyan()));
                 ImGui::SameLine();
                 ImGui::Text("Old pixel information is missing (jitter was cancelled out)");
             }

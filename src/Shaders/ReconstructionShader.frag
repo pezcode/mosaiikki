@@ -348,7 +348,7 @@ void main()
 	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
 	{
 		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
-			fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+			fragColor = vec4(1.0, 1.0, 0.0, 1.0);
 		else
 			fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
@@ -364,7 +364,7 @@ void main()
 	if(!any(equal(ivec2(oldQuadrant), oldQuadrants)))
 	{
 		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
-			fragColor = vec4(0.0, 0.0, 1.0, 1.0);
+			fragColor = vec4(0.0, 1.0, 1.0, 1.0);
 		else
 			fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
@@ -398,7 +398,7 @@ void main()
 	if(occluded)
 	{
 		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
-			fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+			fragColor = vec4(1.0, 0.0, 1.0, 1.0);
 		else
 			fragColor = fetchColorAverage(halfCoords, quadrant);
 		return;
