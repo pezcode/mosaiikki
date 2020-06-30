@@ -37,6 +37,7 @@ public:
     {
         return color;
     }
+
     void setColor(const Magnum::Color4& newColor)
     {
         this->color = newColor;

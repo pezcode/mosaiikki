@@ -5,7 +5,8 @@ out vec4 velocity;
 void main()
 {
 	vec2 distance = (clipPos.xy / clipPos.w) - (oldClipPos.xy / oldClipPos.w);
-	distance *= 0.5; // [-1;1]
-	//distance = vec2(0.0, 0.0);
+	// scale to [-1;1] so we can simply multiply by the viewport size to get screenspace velocity
+	// requires 16-bit float framebuffer attachment
+	distance *= 0.5;
 	velocity = vec4(distance, 1.0, 1.0);
 }

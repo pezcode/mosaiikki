@@ -173,7 +173,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
                     drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
 
                     VelocityDrawable3D* velocityDrawable =
-                        new VelocityDrawable3D(duplicate, velocityShader, drawable->getMesh());
+                        new VelocityDrawable3D(static_cast<Object3D&>(drawable->object()), velocityShader, drawable->getMesh());
                     velocityDrawables.add(*velocityDrawable);
                 }
 
@@ -427,10 +427,6 @@ void Mosaiikki::drawEvent()
             const Color3 clearColor = 0x111111_rgbf;
             framebuffer.clearColor(0, clearColor);
 
-            // run fragment shader for each sample
-            GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
-            GL::Renderer::setMinSampleShading(1.0f);
-
             // copy and reuse velocity depth buffer
             if(options.reconstruction.createVelocityBuffer && options.reuseVelocityDepth)
             {
@@ -449,6 +445,10 @@ void Mosaiikki::drawEvent()
             {
                 framebuffer.clearDepth(1.0f);
             }
+
+            // run fragment shader for each sample
+            GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
+            GL::Renderer::setMinSampleShading(1.0f);
 
             // jitter camera if necessary
             camera->setProjectionMatrix(matrices[currentFrame]);
