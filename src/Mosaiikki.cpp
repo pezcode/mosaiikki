@@ -519,6 +519,9 @@ void Mosaiikki::keyReleaseEvent(KeyEvent& event)
     if(event.isAccepted())
         return;
 
+    if(event.modifiers())
+        return;
+
     switch(event.key())
     {
         case KeyEvent::Key::Space:
@@ -527,10 +530,16 @@ void Mosaiikki::keyReleaseEvent(KeyEvent& event)
         case KeyEvent::Key::Right:
             advanceOneFrame = true;
             break;
-        case KeyEvent::Key::Tab:
+        // can't use Tab because it's eaten by imgui's keyboard navigation
+        //case KeyEvent::Key::Tab:
+        case KeyEvent::Key::H:
             hideUI = !hideUI;
             break;
+        default:
+            return;
     }
+
+    event.setAccepted();
 }
 
 void Mosaiikki::buildUI()
@@ -631,7 +640,7 @@ void Mosaiikki::buildUI()
             ImGui::SameLine(ImGui::GetWindowWidth() * 0.45f);
             ImGui::Text("Zoom");
 
-            ImGui::Text("Tab");
+            ImGui::Text("H");
             ImGui::SameLine(ImGui::GetWindowWidth() * 0.45f);
             ImGui::Text("Hide UI");
         }
