@@ -14,9 +14,8 @@ public:
 
     explicit ColoredDrawable(Object3D& object,
                              Magnum::Shaders::Phong& shader,
-                             Magnum::GL::Mesh& mesh,
-                             const Magnum::Color4& color = Magnum::Color4(1.0f, 1.0f, 1.0f)) :
-        Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), color(color)
+                             Magnum::GL::Mesh& mesh) :
+        Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), color(1.0f, 1.0f, 1.0f), shininess(80.0f)
     {
     }
 
@@ -24,7 +23,8 @@ public:
         Magnum::SceneGraph::Drawable3D(object),
         shader(other.shader),
         mesh(other.mesh),
-        color(other.color)
+        color(other.color),
+        shininess(other.shininess)
     {
     }
 
@@ -35,13 +35,19 @@ public:
 
     void setColor(const Magnum::Color4& newColor)
     {
-        this->color = newColor;
+        color = newColor;
+    }
+
+    void setShininess(float newShininess)
+    {
+        shininess = newShininess;
     }
 
 protected:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
     {
         shader.setDiffuseColor(color)
+            .setShininess(shininess)
             .setTransformationMatrix(transformationMatrix)
             .setNormalMatrix(transformationMatrix.normalMatrix())
             .setProjectionMatrix(camera.projectionMatrix());
@@ -52,4 +58,5 @@ protected:
     Magnum::Shaders::Phong& shader;
     Magnum::GL::Mesh& mesh;
     Magnum::Color4 color;
+    float shininess;
 };

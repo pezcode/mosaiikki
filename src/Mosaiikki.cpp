@@ -1,5 +1,6 @@
 #include "Mosaiikki.h"
 
+#include "Scene.h"
 #include "Feature.h"
 #include "MagnumShadersSampleInterpolationOverride.h"
 #include <Magnum/GL/Version.h>
@@ -9,21 +10,10 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/GL/Renderer.h>
-#include <Magnum/Trade/AbstractImporter.h>
-#include <Magnum/Trade/SceneData.h>
-#include <Magnum/Trade/MeshData.h>
-#include <Magnum/Trade/MeshObjectData3D.h>
-#include <Magnum/Trade/TextureData.h>
-#include <Magnum/Trade/ImageData.h>
-#include <Magnum/ImageView.h>
-#include <Magnum/PixelFormat.h>
-#include <Magnum/MeshTools/Compile.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Corrade/Utility/Arguments.h>
 #include <Corrade/Utility/FormatStl.h>
-#include <Corrade/Containers/GrowableArray.h>
-#include <Corrade/PluginManager/Manager.h>
 
 using namespace Magnum;
 using namespace Corrade;
@@ -36,16 +26,10 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     _debug(nullptr),
     _warning(nullptr),
     _error(nullptr),
-    coloredMaterialShader(NoCreate),
-    texturedMaterialShader(NoCreate),
-    paused(false),
-    advanceOneFrame(false),
-    hideUI(false),
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
     velocityShader(NoCreate),
-    currentFrame(0),
     framebuffers { GL::Framebuffer(NoCreate), GL::Framebuffer(NoCreate) },
     colorAttachments(NoCreate),
     depthAttachments(NoCreate),
@@ -113,9 +97,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     Utility::Arguments parser;
     parser
-        .addOption("mesh", "resources/models/Suzanne.glb")
-        //.addOption("mesh", "resources/models/Avocado/Avocado.gltf")
-        .setHelp("mesh", "mesh to load")
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")
         .setHelp("font", "GUI font to load")
         .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
@@ -129,64 +110,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     std::string fontFile = parser.value<std::string>("font");
     setFont(fontFile.c_str(), 15.0f);
 
-    // Scene
-
-    lightPositions = Containers::array<Vector3>({ { -3.0f, 10.0f, 10.0f } });
-    lightColors = Containers::array<Color4>({ 0xffffff_rgbf });
-    CORRADE_INTERNAL_ASSERT(lightPositions.size() == lightColors.size());
-
-    cameraObject.setParent(&scene).translate(Vector3::zAxis(-5.0f));
-    camera.reset(new SceneGraph::Camera3D(cameraObject));
-    camera->setViewport(framebufferSize());
-    updateProjectionMatrix(*camera);
-
-    SceneGraph::Animable3D* animable = new Animable3D(
-        cameraObject, Vector3::xAxis(), 3.0f, -5.5f); //new Animable3D(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
-    cameraAnimables.add(*animable);
-    animable->setState(SceneGraph::AnimationState::Running);
-
-    manipulator.setParent(&scene);
-
-    // Objects
-
-    Object3D& original = manipulator.addChild<Object3D>();
-    std::string sceneFile = parser.value<std::string>("mesh");
-    bool loaded = loadScene(sceneFile.c_str(), original);
-    CORRADE_ASSERT(loaded, "Failed to load scene", );
-
-    Vector3 center(float(objectGridSize - 1) / 2.0f);
-
-    for(size_t i = 0; i < objectGridSize; i++)
-    {
-        for(size_t j = 0; j < objectGridSize; j++)
-        {
-            for(size_t k = 0; k < objectGridSize; k++)
-            {
-                Object3D& duplicate = duplicateObject(original, *original.parent());
-                duplicate.scale(Vector3(10.0f));
-                duplicate.translate((Vector3(i, j, -float(k)) - center) * 4.0f);
-
-                for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
-                {
-                    drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
-                    VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
-                        static_cast<Object3D&>(drawable->object()), velocityShader, drawable->getMesh());
-                    velocityDrawables.add(*velocityDrawable);
-                }
-
-                SceneGraph::Animable3D* duplicatedAnimable = new Animable3D(duplicate, Vector3::xAxis(), 3.0f, 5.5f);
-                meshAnimables.add(*duplicatedAnimable);
-                duplicatedAnimable->setState(SceneGraph::AnimationState::Running);
-            }
-        }
-    }
-
-    // remove original object that was copied in the grid
-    for(TexturedDrawable3D* drawable : featuresInChildren<TexturedDrawable3D>(original))
-    {
-        drawables.remove(*drawable);
-    }
-
     // Framebuffers
 
     resizeFramebuffers(framebufferSize());
@@ -197,37 +120,31 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     velocityShader = VelocityShader();
 
-    {
-        // patch the built-in Phong shader to use sample interpolation
-        MagnumShadersSampleInterpolationOverride shaderOverride({ "Phong.vert", "Phong.frag" });
-
-        coloredMaterialShader = Shaders::Phong(Shaders::Phong::Flag(0), lightPositions.size());
-
-        texturedMaterialShader =
-            Shaders::Phong(Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
-                               Shaders::Phong::Flag::NormalTexture,
-                           lightPositions.size());
-    }
-
-    coloredMaterialShader.setAmbientColor(0x111111_rgbf)
-        .setSpecularColor(0xffffff_rgbf)
-        .setShininess(80.0f)
-        .setLightPositions(lightPositions)
-        .setLightColors(lightColors);
-    coloredMaterialShader.setLabel("Material shader (colored)");
-
-    texturedMaterialShader.setAmbientColor(0x111111_rgbf)
-        .setSpecularColor(0xffffff_rgbf)
-        .setShininess(80.0f)
-        .setLightPositions(lightPositions)
-        .setLightColors(lightColors);
-    texturedMaterialShader.setLabel("Material shader (textured)");
-
     depthBlitShader = DepthBlitShader();
     depthBlitShader.setLabel("Depth blit shader");
 
     reconstructionShader = ReconstructionShader();
     reconstructionShader.setLabel("Checkerboard resolve shader");
+
+    // Scene
+
+    {
+        // patch the built-in Phong shader to use sample interpolation
+        MagnumShadersSampleInterpolationOverride shaderOverride({ "Phong.vert", "Phong.frag" });
+
+        scene.emplace();
+    }
+
+    // register all animated objects for the velocity pass
+    for(Scene::ColoredDrawable3D* drawable : featuresInChildren<Scene::ColoredDrawable3D>(scene->root))
+    {
+        VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
+            static_cast<Scene::Object3D&>(drawable->object()), velocityShader, drawable->getMesh());
+        velocityDrawables.add(*velocityDrawable);
+    }
+
+    scene->camera->setViewport(framebufferSize());
+    updateProjectionMatrix(*scene->camera);
 
     timeline.start();
 }
@@ -240,7 +157,7 @@ void Mosaiikki::updateProjectionMatrix(Magnum::SceneGraph::Camera3D& cam)
 
     float aspectRatio = Vector2(cam.viewport()).aspectRatio();
     Rad hFOV = Math::atan(Math::tan(vFOV * 0.5f) * aspectRatio) * 2.0f;
-    cam.setProjectionMatrix(Matrix4::perspectiveProjection(hFOV, aspectRatio, cameraNear, cameraFar));
+    cam.setProjectionMatrix(Matrix4::perspectiveProjection(hFOV, aspectRatio, scene->cameraNear, scene->cameraFar));
 }
 
 void Mosaiikki::resizeFramebuffers(Vector2i size)
@@ -371,8 +288,8 @@ void Mosaiikki::drawEvent()
     {
         advanceOneFrame = false;
 
-        meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
-        cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
+        scene->meshAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
+        scene->cameraAnimables.step(timeline.previousFrameTime(), timeline.previousFrameDuration());
 
         constexpr GL::Renderer::DepthFunction depthFunction = GL::Renderer::DepthFunction::LessOrEqual; // default: Less
 
@@ -380,13 +297,13 @@ void Mosaiikki::drawEvent()
         GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
         GL::Renderer::setDepthFunction(depthFunction);
 
-        const Matrix4 unjitteredProjection = camera->projectionMatrix();
+        const Matrix4 unjitteredProjection = scene->camera->projectionMatrix();
 
         static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
         Array<FRAMES, Matrix4> matrices;
         // jitter viewport half a pixel to the right = one pixel in the full-res framebuffer
         // = width of NDC divided by full-res pixel count
-        const float offset = 2.0f / camera->viewport().x();
+        const float offset = 2.0f / scene->camera->viewport().x();
         matrices[JITTERED_FRAME] = Matrix4::translation(Vector3::xAxis(offset)) * unjitteredProjection;
         matrices[1 - JITTERED_FRAME] = unjitteredProjection;
 
@@ -400,14 +317,14 @@ void Mosaiikki::drawEvent()
             velocityFramebuffer.clearColor(0, 0_rgbf);
             velocityFramebuffer.clearDepth(1.0f);
 
-            if(meshAnimables.runningCount() > 0)
+            if(scene->meshAnimables.runningCount() > 0)
             {
                 // use current frame's jitter
                 // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
                 // without it, you can use either jittered or unjittered, as long as they match
                 velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
 
-                camera->draw(velocityDrawables);
+                scene->camera->draw(velocityDrawables);
             }
         }
 
@@ -446,14 +363,14 @@ void Mosaiikki::drawEvent()
             GL::Renderer::setMinSampleShading(1.0f);
 
             // jitter camera if necessary
-            camera->setProjectionMatrix(matrices[currentFrame]);
-            camera->draw(drawables);
+            scene->camera->setProjectionMatrix(matrices[currentFrame]);
+            scene->camera->draw(scene->drawables);
 
             GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
         }
 
         // undo any jitter
-        camera->setProjectionMatrix(unjitteredProjection);
+        scene->camera->setProjectionMatrix(unjitteredProjection);
 
         // combine framebuffers
 
@@ -468,7 +385,7 @@ void Mosaiikki::drawEvent()
                 .bindDepth(depthAttachments)
                 .bindVelocity(velocityAttachment)
                 .setCurrentFrame(currentFrame)
-                .setCameraInfo(*camera, cameraNear, cameraFar)
+                .setCameraInfo(*scene->camera, scene->cameraNear, scene->cameraFar)
                 .setOptions(options.reconstruction);
             reconstructionShader.draw();
         }
@@ -504,8 +421,8 @@ void Mosaiikki::viewportEvent(ViewportEvent& event)
     ImGuiApplication::viewportEvent(event);
 
     resizeFramebuffers(event.framebufferSize());
-    camera->setViewport(event.framebufferSize());
-    updateProjectionMatrix(*camera);
+    scene->camera->setViewport(event.framebufferSize());
+    updateProjectionMatrix(*scene->camera);
 }
 
 void Mosaiikki::keyReleaseEvent(KeyEvent& event)
@@ -678,198 +595,14 @@ void Mosaiikki::buildUI()
         ImGui::End();
     }
 
-    for(size_t i = 0; i < meshAnimables.size(); i++)
+    for(size_t i = 0; i < scene->meshAnimables.size(); i++)
     {
-        meshAnimables[i].setState(options.scene.animatedObjects ? SceneGraph::AnimationState::Running
-                                                                : SceneGraph::AnimationState::Paused);
+        scene->meshAnimables[i].setState(options.scene.animatedObjects ? SceneGraph::AnimationState::Running
+                                                                      : SceneGraph::AnimationState::Paused);
     }
 
     // TODO rotation instead of translation animation
-    if(cameraAnimables.size() > 0)
-        cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
-                                                                 : SceneGraph::AnimationState::Paused);
-}
-
-bool Mosaiikki::loadScene(const char* file, Object3D& parent)
-{
-    // load importer
-
-    PluginManager::Manager<Trade::AbstractImporter> manager;
-    Containers::Pointer<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AnySceneImporter");
-    if(!importer)
-        return false;
-
-    // load scene
-
-    if(!importer->openFile(file))
-        return false;
-
-    if(importer->sceneCount() == 0)
-        return false;
-
-    Int sceneId = importer->defaultScene();
-    if(sceneId == -1)
-        sceneId = 0;
-    Containers::Optional<Trade::SceneData> sceneData = importer->scene(sceneId);
-    if(!sceneData)
-        return false;
-
-    // extract and compile meshes
-
-    Containers::arrayResize(meshes, meshes.size() + importer->meshCount());
-    for(UnsignedInt i = 0; i < importer->meshCount(); i++)
-    {
-        Containers::Optional<Trade::MeshData> data = importer->mesh(i);
-        if(data && data->hasAttribute(Trade::MeshAttribute::Position) &&
-           data->hasAttribute(Trade::MeshAttribute::Normal) &&
-           GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
-        {
-            meshes[i] = MeshTools::compile(*data);
-        }
-    }
-
-    // load materials
-
-    Containers::arrayResize(materials, materials.size() + importer->materialCount());
-    for(UnsignedInt i = 0; i < importer->materialCount(); i++)
-    {
-        Containers::Pointer<Trade::AbstractMaterialData> data = importer->material(i);
-        if(data && data->type() == Trade::MaterialType::Phong)
-        {
-            materials[i] = std::move(static_cast<Trade::PhongMaterialData&>(*data));
-        }
-    }
-
-    // load textures
-
-    Magnum::UnsignedInt textureOffset = textures.size();
-
-    Containers::arrayResize(textures, textures.size() + importer->textureCount());
-    for(UnsignedInt i = 0; i < importer->textureCount(); i++)
-    {
-        Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
-        if(textureData && textureData->type() == Trade::TextureData::Type::Texture2D)
-        {
-            Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image(), 0 /* level */);
-            if(imageData)
-            {
-                GL::TextureFormat format;
-                switch(imageData->format())
-                {
-                    case PixelFormat::RGB8Unorm:
-                        format = GL::TextureFormat::RGB8;
-                        break;
-                    case PixelFormat::RGBA8Unorm:
-                        format = GL::TextureFormat::RGB8;
-                        break;
-                    default:
-                        continue;
-                }
-                GL::Texture2D texture;
-                texture
-                    // lod calculation is something roughly equivalent log2(max(len(dFdx(uv)), len(dFdy(uv)))
-                    // halving the rendering resolution doubles the derivate length
-                    // so offset lod to lower mip level for full resolution (log2(sqrt(2)) = 0.5)
-                    .setLodBias(-0.5f)
-                    .setMagnificationFilter(textureData->magnificationFilter())
-                    .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
-                    .setWrapping(textureData->wrapping().xy())
-                    .setStorage(Math::log2(imageData->size().max()) + 1, format, imageData->size())
-                    .setSubImage(0, {}, *imageData)
-                    .generateMipmap();
-                textures[i] = std::move(texture);
-            }
-        }
-    }
-
-    // add objects recursively
-
-    for(UnsignedInt objectId : sceneData->children3D())
-    {
-        addObject(*importer, objectId, parent, textureOffset);
-    }
-
-    return true;
-}
-
-void Mosaiikki::addObject(Trade::AbstractImporter& importer,
-                          UnsignedInt objectId,
-                          Object3D& parent,
-                          Magnum::UnsignedInt textureOffset)
-{
-    // meshes are compiled and accessible at this point
-
-    Containers::Pointer<Trade::ObjectData3D> objectData = importer.object3D(objectId);
-    if(objectData)
-    {
-        Object3D& object = parent.addChild<Object3D>();
-        object.setTransformation(objectData->transformation());
-
-        if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
-           meshes[objectData->instance()])
-        {
-            bool textured = false;
-            const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
-            if(materialId != -1 && materials[materialId])
-            {
-                const Trade::PhongMaterialData& material = *materials[materialId];
-                constexpr Trade::PhongMaterialData::Flags texturedFlags =
-                    Trade::PhongMaterialData::Flag::DiffuseTexture | Trade::PhongMaterialData::Flag::SpecularTexture |
-                    Trade::PhongMaterialData::Flag::NormalTexture;
-
-                if((material.flags() & texturedFlags) == texturedFlags)
-                {
-                    SceneGraph::Drawable3D* drawable = new TexturedDrawable3D(object,
-                                                                              texturedMaterialShader,
-                                                                              *meshes[objectData->instance()],
-                                                                              textures,
-                                                                              textureOffset,
-                                                                              material);
-                    drawables.add(*drawable);
-                    textured = true;
-                }
-            }
-
-            if(!textured)
-            {
-                SceneGraph::Drawable3D* drawable =
-                    new ColoredDrawable3D(object, coloredMaterialShader, *meshes[objectData->instance()]);
-                drawables.add(*drawable);
-            }
-        }
-
-        for(UnsignedInt childObjectId : objectData->children())
-        {
-            addObject(importer, childObjectId, object, textureOffset);
-        }
-    }
-}
-
-Mosaiikki::Object3D& Mosaiikki::duplicateObject(Object3D& object, Object3D& parent)
-{
-    CORRADE_INTERNAL_ASSERT(!object.isScene());
-
-    Object3D& duplicate = parent.addChild<Object3D>();
-    duplicate.setTransformation(object.transformation());
-
-    TexturedDrawable3D* texturedDrawable = feature<TexturedDrawable3D>(object);
-    if(texturedDrawable)
-    {
-        TexturedDrawable3D* newDrawable = new TexturedDrawable3D(*texturedDrawable, duplicate);
-        drawables.add(*newDrawable);
-    }
-
-    ColoredDrawable3D* coloredDrawable = feature<ColoredDrawable3D>(object);
-    if(coloredDrawable)
-    {
-        ColoredDrawable3D* newDrawable = new ColoredDrawable3D(*coloredDrawable, duplicate);
-        drawables.add(*newDrawable);
-    }
-
-    for(Object3D& child : object.children())
-    {
-        duplicateObject(child, duplicate);
-    }
-
-    return duplicate;
+    if(scene->cameraAnimables.size() > 0)
+        scene->cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
+                                                                       : SceneGraph::AnimationState::Paused);
 }

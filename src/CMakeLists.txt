@@ -4,6 +4,8 @@ set(SOURCES
 	Mosaiikki.cpp
 	ImGuiApplication.h
 	ImGuiApplication.cpp
+    Scene.h
+    Scene.cpp
 	VelocityDrawable.h
 	ColoredDrawable.h
 	TexturedDrawable.h
