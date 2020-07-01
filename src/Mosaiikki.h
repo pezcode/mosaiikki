@@ -4,6 +4,7 @@
 #include "ImGuiApplication.h"
 #include "VelocityDrawable.h"
 #include "ColoredDrawable.h"
+#include "TexturedDrawable.h"
 #include "SingleAxisTranslationAnimable.h"
 #include "Shaders/ReconstructionShader.h"
 #include "Shaders/VelocityShader.h"
@@ -43,7 +44,7 @@ class Mosaiikki : public ImGuiApplication
 public:
     explicit Mosaiikki(const Arguments& arguments);
 
-    static constexpr char const * NAME = "mosaiikki";
+    static constexpr char const* NAME = "mosaiikki";
 
 private:
     typedef Magnum::SceneGraph::MatrixTransformation3D Transform3D;
@@ -51,6 +52,7 @@ private:
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
     typedef VelocityDrawable<Transform3D> VelocityDrawable3D;
     typedef ColoredDrawable<Transform3D> ColoredDrawable3D;
+    typedef TexturedDrawable<Transform3D> TexturedDrawable3D;
     typedef SingleAxisTranslationAnimable<Transform3D> Animable3D;
 
     virtual void drawEvent() override;
@@ -59,7 +61,10 @@ private:
     virtual void buildUI() override;
 
     bool loadScene(const char* file, Object3D& parent);
-    void addObject(Magnum::Trade::AbstractImporter& importer, Magnum::UnsignedInt objectId, Object3D& parent);
+    void addObject(Magnum::Trade::AbstractImporter& importer,
+                   Magnum::UnsignedInt objectId,
+                   Object3D& parent,
+                   Magnum::UnsignedInt textureOffset = 0);
     Object3D& duplicateObject(Object3D& object, Object3D& parent);
 
     static void updateProjectionMatrix(Magnum::SceneGraph::Camera3D& camera);

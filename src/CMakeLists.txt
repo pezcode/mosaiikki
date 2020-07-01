@@ -4,10 +4,9 @@ set(SOURCES
 	Mosaiikki.cpp
 	ImGuiApplication.h
 	ImGuiApplication.cpp
-	SceneImporter.h
-	SceneImporter.cpp
 	VelocityDrawable.h
 	ColoredDrawable.h
+	TexturedDrawable.h
 	SingleAxisTranslationAnimable.h
 	Feature.h
 	Options.h

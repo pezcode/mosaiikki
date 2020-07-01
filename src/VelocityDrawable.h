@@ -2,8 +2,8 @@
 
 #include "Shaders/VelocityShader.h"
 #include <Magnum/SceneGraph/Drawable.h>
-#include <Magnum/GL/Mesh.h>
 #include <Magnum/SceneGraph/Camera.h>
+#include <Magnum/GL/Mesh.h>
 
 template<typename Transform>
 class VelocityDrawable : public Magnum::SceneGraph::Drawable3D

@@ -22,6 +22,7 @@
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Corrade/Utility/Arguments.h>
 #include <Corrade/Utility/FormatStl.h>
+#include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/PluginManager/Manager.h>
 
 using namespace Magnum;
@@ -161,19 +162,15 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         {
             for(size_t k = 0; k < objectGridSize; k++)
             {
-                // TODO for some reason velocity drawables are flipped 180° around y
-                // their transformation doesn't match the normal drawables
                 Object3D& duplicate = duplicateObject(original, *original.parent());
-                //duplicate.scale(Vector3(10.0f));
-                //duplicate.rotate(90.0_degf, Vector3::yAxis());
+                duplicate.scale(Vector3(10.0f));
                 duplicate.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
 
                 for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
                 {
                     drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
-
-                    VelocityDrawable3D* velocityDrawable =
-                        new VelocityDrawable3D(static_cast<Object3D&>(drawable->object()), velocityShader, drawable->getMesh());
+                    VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
+                        static_cast<Object3D&>(drawable->object()), velocityShader, drawable->getMesh());
                     velocityDrawables.add(*velocityDrawable);
                 }
 
@@ -185,7 +182,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     }
 
     // remove original object that was copied in the grid
-    for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(original))
+    for(TexturedDrawable3D* drawable : featuresInChildren<TexturedDrawable3D>(original))
     {
         drawables.remove(*drawable);
     }
@@ -207,7 +204,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         coloredMaterialShader = Shaders::Phong(Shaders::Phong::Flag(0), lightPositions.size());
 
         texturedMaterialShader =
-            Shaders::Phong(Shaders::Phong::Flag::DiffuseTexture /*| Shaders::Phong::Flag::SpecularTexture*/ |
+            Shaders::Phong(Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
                                Shaders::Phong::Flag::NormalTexture,
                            lightPositions.size());
     }
@@ -221,8 +218,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     texturedMaterialShader.setAmbientColor(0x111111_rgbf)
         .setSpecularColor(0xffffff_rgbf)
-        //.bindDiffuseTexture(*textures[materials[0]->diffuseTexture()])
-        //.bindNormalTexture(*textures[materials[0]->normalTexture()])
         .setShininess(80.0f)
         .setLightPositions(lightPositions)
         .setLightColors(lightColors);
@@ -700,32 +695,31 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
     // load importer
 
     PluginManager::Manager<Trade::AbstractImporter> manager;
-    Containers::Pointer<Trade::AbstractImporter> sceneImporter = manager.loadAndInstantiate("AnySceneImporter");
-    Containers::Pointer<Trade::AbstractImporter> imageImporter = manager.loadAndInstantiate("AnyImageImporter");
-    if(!sceneImporter)
+    Containers::Pointer<Trade::AbstractImporter> importer = manager.loadAndInstantiate("AnySceneImporter");
+    if(!importer)
         return false;
 
     // load scene
 
-    if(!sceneImporter->openFile(file))
+    if(!importer->openFile(file))
         return false;
 
-    if(sceneImporter->sceneCount() == 0)
+    if(importer->sceneCount() == 0)
         return false;
 
-    Int sceneId = sceneImporter->defaultScene();
+    Int sceneId = importer->defaultScene();
     if(sceneId == -1)
         sceneId = 0;
-    Containers::Optional<Trade::SceneData> sceneData = sceneImporter->scene(sceneId);
+    Containers::Optional<Trade::SceneData> sceneData = importer->scene(sceneId);
     if(!sceneData)
         return false;
 
     // extract and compile meshes
 
-    meshes = Containers::Array<Containers::Optional<GL::Mesh>>(sceneImporter->meshCount());
-    for(UnsignedInt i = 0; i < sceneImporter->meshCount(); i++)
+    Containers::arrayResize(meshes, meshes.size() + importer->meshCount());
+    for(UnsignedInt i = 0; i < importer->meshCount(); i++)
     {
-        Containers::Optional<Trade::MeshData> data = sceneImporter->mesh(i);
+        Containers::Optional<Trade::MeshData> data = importer->mesh(i);
         if(data && data->hasAttribute(Trade::MeshAttribute::Position) &&
            data->hasAttribute(Trade::MeshAttribute::Normal) &&
            GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
@@ -736,10 +730,10 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
 
     // load materials
 
-    materials = Containers::Array<Containers::Optional<Trade::PhongMaterialData>>(sceneImporter->materialCount());
-    for(UnsignedInt i = 0; i < sceneImporter->materialCount(); i++)
+    Containers::arrayResize(materials, materials.size() + importer->materialCount());
+    for(UnsignedInt i = 0; i < importer->materialCount(); i++)
     {
-        Containers::Pointer<Trade::AbstractMaterialData> data = sceneImporter->material(i);
+        Containers::Pointer<Trade::AbstractMaterialData> data = importer->material(i);
         if(data && data->type() == Trade::MaterialType::Phong)
         {
             materials[i] = std::move(static_cast<Trade::PhongMaterialData&>(*data));
@@ -748,14 +742,15 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
 
     // load textures
 
-    textures = Containers::Array<Containers::Optional<GL::Texture2D>>(sceneImporter->textureCount());
-    for(UnsignedInt i = 0; i < sceneImporter->textureCount(); i++)
+    Magnum::UnsignedInt textureOffset = textures.size();
+
+    Containers::arrayResize(textures, textures.size() + importer->textureCount());
+    for(UnsignedInt i = 0; i < importer->textureCount(); i++)
     {
-        Containers::Optional<Trade::TextureData> textureData = sceneImporter->texture(i);
+        Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
         if(textureData && textureData->type() == Trade::TextureData::Type::Texture2D)
         {
-            Containers::Optional<Trade::ImageData2D> imageData =
-                sceneImporter->image2D(textureData->image(), 0 /* level */);
+            Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image(), 0 /* level */);
             if(imageData)
             {
                 GL::TextureFormat format;
@@ -772,9 +767,9 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
                 }
                 GL::Texture2D texture;
                 texture
-                    // lod calculation is something like log2(max(len(dFdx(uv)), len(dFdy(uv)))
+                    // lod calculation is something roughly equivalent log2(max(len(dFdx(uv)), len(dFdy(uv)))
                     // halving the rendering resolution doubles the derivate length
-                    // offset to lower mip level for full resolution (log2(sqrt(2)) = 0.5)
+                    // so offset lod to lower mip level for full resolution (log2(sqrt(2)) = 0.5)
                     .setLodBias(-0.5f)
                     .setMagnificationFilter(textureData->magnificationFilter())
                     .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
@@ -791,16 +786,18 @@ bool Mosaiikki::loadScene(const char* file, Object3D& parent)
 
     for(UnsignedInt objectId : sceneData->children3D())
     {
-        addObject(*sceneImporter, objectId, parent);
+        addObject(*importer, objectId, parent, textureOffset);
     }
 
     return true;
 }
 
-void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectId, Object3D& parent)
+void Mosaiikki::addObject(Trade::AbstractImporter& importer,
+                          UnsignedInt objectId,
+                          Object3D& parent,
+                          Magnum::UnsignedInt textureOffset)
 {
     // meshes are compiled and accessible at this point
-    // TODO textured Phong
 
     Containers::Pointer<Trade::ObjectData3D> objectData = importer.object3D(objectId);
     if(objectData)
@@ -816,22 +813,18 @@ void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectI
             if(materialId != -1 && materials[materialId])
             {
                 const Trade::PhongMaterialData& material = *materials[materialId];
+                constexpr Trade::PhongMaterialData::Flags texturedFlags =
+                    Trade::PhongMaterialData::Flag::DiffuseTexture | Trade::PhongMaterialData::Flag::SpecularTexture |
+                    Trade::PhongMaterialData::Flag::NormalTexture;
 
-                Trade::PhongMaterialData::Flags texturedFlags = Trade::PhongMaterialData::Flag(0);
-                if(texturedMaterialShader.flags() & Shaders::Phong::Flag::DiffuseTexture)
-                    texturedFlags |= Trade::PhongMaterialData::Flag::DiffuseTexture;
-                if(texturedMaterialShader.flags() & Shaders::Phong::Flag::SpecularTexture)
-                    texturedFlags |= Trade::PhongMaterialData::Flag::SpecularTexture;
-                if(texturedMaterialShader.flags() & Shaders::Phong::Flag::NormalTexture)
-                    texturedFlags |= Trade::PhongMaterialData::Flag::NormalTexture;
-
-                if(texturedFlags && (material.flags() & texturedFlags) == texturedFlags)
+                if((material.flags() & texturedFlags) == texturedFlags)
                 {
-                    // TODO create TexturedDrawable3D
-                    // have to change duplicateObject and object creation code in the constructor
-
-                    SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(
-                        object, texturedMaterialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
+                    SceneGraph::Drawable3D* drawable = new TexturedDrawable3D(object,
+                                                                              texturedMaterialShader,
+                                                                              *meshes[objectData->instance()],
+                                                                              textures,
+                                                                              textureOffset,
+                                                                              material);
                     drawables.add(*drawable);
                     textured = true;
                 }
@@ -839,15 +832,15 @@ void Mosaiikki::addObject(Trade::AbstractImporter& importer, UnsignedInt objectI
 
             if(!textured)
             {
-                SceneGraph::Drawable3D* drawable = new ColoredDrawable3D(
-                    object, coloredMaterialShader, *meshes[objectData->instance()], 0xffffff_rgbf);
+                SceneGraph::Drawable3D* drawable =
+                    new ColoredDrawable3D(object, coloredMaterialShader, *meshes[objectData->instance()]);
                 drawables.add(*drawable);
             }
         }
 
         for(UnsignedInt childObjectId : objectData->children())
         {
-            addObject(importer, childObjectId, object);
+            addObject(importer, childObjectId, object, textureOffset);
         }
     }
 }
@@ -859,10 +852,17 @@ Mosaiikki::Object3D& Mosaiikki::duplicateObject(Object3D& object, Object3D& pare
     Object3D& duplicate = parent.addChild<Object3D>();
     duplicate.setTransformation(object.transformation());
 
-    ColoredDrawable3D* drawable = feature<ColoredDrawable3D>(object);
-    if(drawable)
+    TexturedDrawable3D* texturedDrawable = feature<TexturedDrawable3D>(object);
+    if(texturedDrawable)
     {
-        ColoredDrawable3D* newDrawable = new ColoredDrawable3D(*drawable, duplicate);
+        TexturedDrawable3D* newDrawable = new TexturedDrawable3D(*texturedDrawable, duplicate);
+        drawables.add(*newDrawable);
+    }
+
+    ColoredDrawable3D* coloredDrawable = feature<ColoredDrawable3D>(object);
+    if(coloredDrawable)
+    {
+        ColoredDrawable3D* newDrawable = new ColoredDrawable3D(*coloredDrawable, duplicate);
         drawables.add(*newDrawable);
     }
 
