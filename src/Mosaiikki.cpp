@@ -154,7 +154,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     bool loaded = loadScene(sceneFile.c_str(), original);
     CORRADE_ASSERT(loaded, "Failed to load scene", );
 
-    Vector3 center((float)(objectGridSize - 1) / 2.0f);
+    Vector3 center(float(objectGridSize - 1) / 2.0f);
 
     for(size_t i = 0; i < objectGridSize; i++)
     {
@@ -164,7 +164,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
             {
                 Object3D& duplicate = duplicateObject(original, *original.parent());
                 duplicate.scale(Vector3(10.0f));
-                duplicate.translate((Vector3(i, j, -(float)k) - center) * 4.0f);
+                duplicate.translate((Vector3(i, j, -float(k)) - center) * 4.0f);
 
                 for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
                 {

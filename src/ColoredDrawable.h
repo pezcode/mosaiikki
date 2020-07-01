@@ -18,7 +18,6 @@ public:
                              const Magnum::Color4& color = Magnum::Color4(1.0f, 1.0f, 1.0f)) :
         Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), color(color)
     {
-        auto a = Magnum::Math::Literals::operator""_rgbaf(0xffffffff);
     }
 
     ColoredDrawable(const ColoredDrawable& other, Object3D& object) :

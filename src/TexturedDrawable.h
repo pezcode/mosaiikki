@@ -10,6 +10,8 @@ template<typename Transform>
 class TexturedDrawable : public ColoredDrawable<Transform>
 {
 public:
+    typedef typename ColoredDrawable<Transform>::Object3D Object3D;
+
     explicit TexturedDrawable(
         Object3D& object,
         Magnum::Shaders::Phong& shader,
@@ -18,7 +20,7 @@ public:
         Magnum::UnsignedInt textureOffset,
         const Magnum::Trade::PhongMaterialData& material,
         const Magnum::Color4& color = Magnum::Color4(1.0f, 1.0f, 1.0f)) :
-        ColoredDrawable(object, shader, mesh, color),
+        ColoredDrawable<Transform>(object, shader, mesh, color),
         textures(textures),
         textureOffset(textureOffset),
         material(material)
@@ -26,7 +28,7 @@ public:
     }
 
     TexturedDrawable(const TexturedDrawable& other, Object3D& object) :
-        ColoredDrawable(object, other.shader, other.mesh, other.color),
+        ColoredDrawable<Transform>(object, other.shader, other.mesh, other.color),
         textures(other.textures),
         textureOffset(other.textureOffset),
         material(other.material)
@@ -36,31 +38,33 @@ public:
 private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
     {
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::AmbientTexture &&
+        // can't access templated base class's members without this->
+
+        if(this->shader.flags() & Magnum::Shaders::Phong::Flag::AmbientTexture &&
            material.flags() & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture)
-            shader.bindAmbientTexture(*textures[textureOffset + material.ambientTexture()]);
+            this->shader.bindAmbientTexture(*textures[textureOffset + material.ambientTexture()]);
 
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::DiffuseTexture &&
+        if(this->shader.flags() & Magnum::Shaders::Phong::Flag::DiffuseTexture &&
            material.flags() & Magnum::Trade::PhongMaterialData::Flag::DiffuseTexture)
-            shader.bindDiffuseTexture(*textures[textureOffset + material.diffuseTexture()]);
+            this->shader.bindDiffuseTexture(*textures[textureOffset + material.diffuseTexture()]);
 
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::NormalTexture &&
+        if(this->shader.flags() & Magnum::Shaders::Phong::Flag::NormalTexture &&
            material.flags() & Magnum::Trade::PhongMaterialData::Flag::NormalTexture)
-            shader.bindNormalTexture(*textures[textureOffset + material.normalTexture()]);
+            this->shader.bindNormalTexture(*textures[textureOffset + material.normalTexture()]);
 
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::SpecularTexture &&
+        if(this->shader.flags() & Magnum::Shaders::Phong::Flag::SpecularTexture &&
            material.flags() & Magnum::Trade::PhongMaterialData::Flag::SpecularTexture)
-            shader.bindSpecularTexture(*textures[textureOffset + material.specularTexture()]);
+            this->shader.bindSpecularTexture(*textures[textureOffset + material.specularTexture()]);
 
-        shader.setDiffuseColor(color)
+        this->shader.setDiffuseColor(this->color)
             .setTransformationMatrix(transformationMatrix)
             .setNormalMatrix(transformationMatrix.normalMatrix())
             .setProjectionMatrix(camera.projectionMatrix());
 
-        shader.draw(mesh);
+        this->shader.draw(this->mesh);
     }
 
-    const Magnum::Trade::PhongMaterialData& material;
     Corrade::Containers::ArrayView<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
     Magnum::UnsignedInt textureOffset;
+    const Magnum::Trade::PhongMaterialData& material;
 };
