@@ -73,7 +73,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
             for(size_t k = 0; k < objectGridSize; k++)
             {
                 Object3D& duplicate = duplicateObject(original, *original.parent());
-                duplicate.scale(Vector3(10.0f));
+                duplicate.scale(Vector3(50.0f));
                 duplicate.translate((Vector3(i, j, -float(k)) - center) * 4.0f);
 
                 for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
@@ -172,10 +172,6 @@ bool Scene::loadScene(const char* file, Object3D& parent)
                 }
                 GL::Texture2D texture;
                 texture
-                    // lod calculation is something roughly equivalent log2(max(len(dFdx(uv)), len(dFdy(uv)))
-                    // halving the rendering resolution doubles the derivate length
-                    // so offset lod to lower mip level for full resolution (log2(sqrt(2)) = 0.5)
-                    .setLodBias(-0.5f)
                     .setMagnificationFilter(textureData->magnificationFilter())
                     .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
                     .setWrapping(textureData->wrapping().xy())
