@@ -4,12 +4,13 @@ set(SOURCES
 	Mosaiikki.cpp
 	ImGuiApplication.h
 	ImGuiApplication.cpp
-    Scene.h
-    Scene.cpp
+	Scene.h
+	Scene.cpp
 	VelocityDrawable.h
 	ColoredDrawable.h
 	TexturedDrawable.h
-	SingleAxisTranslationAnimable.h
+	AxisTranslationAnimable.h
+	AxisRotationAnimable.h
 	Feature.h
 	Options.h
 	MagnumShadersSampleInterpolationOverride.h

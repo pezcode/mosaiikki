@@ -4,7 +4,8 @@
 
 #include "ColoredDrawable.h"
 #include "TexturedDrawable.h"
-#include "SingleAxisTranslationAnimable.h"
+#include "AxisTranslationAnimable.h"
+#include "AxisRotationAnimable.h"
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
@@ -29,7 +30,8 @@ public:
     
     typedef ColoredDrawable<Transform3D> ColoredDrawable3D;
     typedef TexturedDrawable<Transform3D> TexturedDrawable3D;
-    typedef SingleAxisTranslationAnimable<Transform3D> Animable3D;
+    typedef AxisTranslationAnimable<Transform3D> TranslationAnimable3D;
+    typedef AxisRotationAnimable<Transform3D> RotationAnimable3D;
 
     explicit Scene(Magnum::NoCreateT);
     explicit Scene();

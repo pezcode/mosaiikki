@@ -30,8 +30,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     cameraObject.setParent(&scene).translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
 
-    SceneGraph::Animable3D* animable = new Animable3D(
-        cameraObject, Vector3::xAxis(), 3.0f, -5.5f); //new Animable3D(cameraObject, Vector3::yAxis(), 1.5f, 1.0f);
+    SceneGraph::Animable3D* animable = new TranslationAnimable3D(cameraObject, Vector3::yAxis(), 3.0f, -5.5f);
     cameraAnimables.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
@@ -81,9 +80,15 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
                     drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
                 }
 
-                SceneGraph::Animable3D* duplicatedAnimable = new Animable3D(duplicate, Vector3::xAxis(), 3.0f, 5.5f);
-                meshAnimables.add(*duplicatedAnimable);
-                duplicatedAnimable->setState(SceneGraph::AnimationState::Running);
+                SceneGraph::Animable3D* translationAnimable =
+                    new TranslationAnimable3D(duplicate, Vector3::xAxis(), 3.0f, 5.5f);
+                meshAnimables.add(*translationAnimable);
+                SceneGraph::Animable3D* rotationAnimable =
+                    new RotationAnimable3D(duplicate, Vector3::yAxis(), 90.0_degf);
+                meshAnimables.add(*rotationAnimable);
+
+                translationAnimable->setState(SceneGraph::AnimationState::Running);
+                rotationAnimable->setState(SceneGraph::AnimationState::Running);
             }
         }
     }
@@ -171,8 +176,7 @@ bool Scene::loadScene(const char* file, Object3D& parent)
                         continue;
                 }
                 GL::Texture2D texture;
-                texture
-                    .setMagnificationFilter(textureData->magnificationFilter())
+                texture.setMagnificationFilter(textureData->magnificationFilter())
                     .setMinificationFilter(textureData->minificationFilter(), textureData->mipmapFilter())
                     .setWrapping(textureData->wrapping().xy())
                     .setStorage(Math::log2(imageData->size().max()) + 1, format, imageData->size())

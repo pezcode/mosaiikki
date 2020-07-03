@@ -139,9 +139,10 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     {
         if(texture)
         {
-            // lod calculation is something roughly equivalent log2(max(len(dFdx(uv)), len(dFdy(uv)))
-            // halving the rendering resolution doubles the derivate length
-            // so offset lod to lower mip level for full resolution (log2(sqrt(2)) = 0.5)
+            // LOD calculation is something roughly equivalent to: log2(max(len(dFdx(uv)), len(dFdy(uv)))
+            // halving the rendering width/height doubles the derivate length
+            // after upsampling, textures would become blurry compared to full-resolution rendering
+            // so offset LOD to lower mip level to full resolution equivalent (log2(sqrt(2)) = 0.5)
             texture->setLodBias(-0.5f);
         }
     }
