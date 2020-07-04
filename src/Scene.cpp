@@ -8,6 +8,7 @@
 #include <Magnum/ImageView.h>
 #include <Magnum/PixelFormat.h>
 #include <Magnum/Math/Color.h>
+#include <Magnum/Math/FunctionsBatch.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
 #include <Corrade/Containers/GrowableArray.h>
@@ -60,7 +61,8 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     mesh = "resources/models/Avocado/Avocado.gltf";
 
     Object3D& original = root.addChild<Object3D>();
-    bool loaded = loadScene(mesh.c_str(), original);
+    Range3D bounds;
+    bool loaded = loadScene(mesh.c_str(), original, &bounds);
     CORRADE_ASSERT(loaded, "Failed to load scene", );
 
     Vector3 center(float(objectGridSize - 1) / 2.0f);
@@ -72,7 +74,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
             for(size_t k = 0; k < objectGridSize; k++)
             {
                 Object3D& duplicate = duplicateObject(original, *original.parent());
-                duplicate.scale(Vector3(50.0f));
+                duplicate.scale(Vector3(2.0f / bounds.size().max()));
                 duplicate.translate((Vector3(i, j, -float(k)) - center) * 4.0f);
 
                 for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
@@ -100,7 +102,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     }
 }
 
-bool Scene::loadScene(const char* file, Object3D& parent)
+bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 {
     // load importer
 
@@ -126,6 +128,8 @@ bool Scene::loadScene(const char* file, Object3D& parent)
 
     // extract and compile meshes
 
+    Range3D sceneBounds;
+
     Containers::arrayResize(meshes, meshes.size() + importer->meshCount());
     for(UnsignedInt i = 0; i < importer->meshCount(); i++)
     {
@@ -134,9 +138,19 @@ bool Scene::loadScene(const char* file, Object3D& parent)
            data->hasAttribute(Trade::MeshAttribute::Normal) &&
            GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
         {
+            if(bounds)
+            {
+                const std::pair<Vector3, Vector3> minmax = Math::minmax(data->positions3DAsArray());
+                const Range3D meshBounds = { minmax.first, minmax.second };
+                sceneBounds.min() = Math::min(sceneBounds.min(), meshBounds.min());
+                sceneBounds.max() = Math::max(sceneBounds.max(), meshBounds.max());
+            }
             meshes[i] = MeshTools::compile(*data);
         }
     }
+
+    if(bounds)
+        *bounds = sceneBounds;
 
     // load materials
 

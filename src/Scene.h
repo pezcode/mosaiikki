@@ -13,6 +13,7 @@
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/PhongMaterialData.h>
+#include <Magnum/Math/Range.h>
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Texture.h>
@@ -45,7 +46,7 @@ public:
     //Scene(Scene&&) noexcept = default;
     //Scene& operator=(Scene&&) noexcept = default;
 
-    bool loadScene(const char* file, Object3D& parent);
+    bool loadScene(const char* file, Object3D& parent, Magnum::Range3D* bounds = nullptr);
     void addObject(Magnum::Trade::AbstractImporter& importer,
                    Magnum::UnsignedInt objectId,
                    Object3D& parent,
