@@ -7,8 +7,12 @@ set(SOURCES
 	Scene.h
 	Scene.cpp
 	VelocityDrawable.h
+	VelocityDrawableInstanced.h
 	ColoredDrawable.h
+	ColoredDrawableInstanced.h
 	TexturedDrawable.h
+	TexturedDrawableInstanced.h
+	InstanceDrawable.h
 	AxisTranslationAnimable.h
 	AxisRotationAnimable.h
 	Feature.h

@@ -93,8 +93,17 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
 #endif
 
-    // Command line
+    // TODO remove
+    // ASAN test
 
+    char* test = new char[2];
+    test[1] = 0;
+    test[2] = 0;
+
+    Debug() << test;
+
+    // Command line
+    
     Utility::Arguments parser;
     parser
         .addOption("font", "resources/fonts/Roboto-Regular.ttf")

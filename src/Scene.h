@@ -3,7 +3,9 @@
 #include "Feature.h"
 
 #include "ColoredDrawable.h"
+#include "ColoredDrawableInstanced.h"
 #include "TexturedDrawable.h"
+#include "TexturedDrawableInstanced.h"
 #include "AxisTranslationAnimable.h"
 #include "AxisRotationAnimable.h"
 #include <Magnum/SceneGraph/Object.h>
@@ -30,7 +32,11 @@ public:
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
     
     typedef ColoredDrawable<Transform3D> ColoredDrawable3D;
+    typedef ColoredDrawableInstanced<Transform3D> ColoredDrawableInstanced3D;
     typedef TexturedDrawable<Transform3D> TexturedDrawable3D;
+    typedef TexturedDrawableInstanced<Transform3D> TexturedDrawableInstanced3D;
+    typedef InstanceDrawable<Transform3D> InstanceDrawable3D;
+
     typedef AxisTranslationAnimable<Transform3D> TranslationAnimable3D;
     typedef AxisRotationAnimable<Transform3D> RotationAnimable3D;
 
@@ -51,9 +57,9 @@ public:
                    Magnum::UnsignedInt objectId,
                    Object3D& parent,
                    Magnum::UnsignedInt textureOffset = 0);
-    Object3D& duplicateObject(Object3D& object, Object3D& parent);
 
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
+    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Buffer>> instanceBuffers;
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::Trade::PhongMaterialData>> materials;
 

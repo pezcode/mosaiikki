@@ -39,10 +39,12 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     // Shaders
 
-    coloredMaterialShader = Shaders::Phong(Shaders::Phong::Flag(0), lightPositions.size());
+    coloredMaterialShader = Shaders::Phong(
+        Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor, lightPositions.size());
 
     texturedMaterialShader =
-        Shaders::Phong(Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
+        Shaders::Phong(Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor |
+                           Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
                            Shaders::Phong::Flag::NormalTexture,
                        lightPositions.size());
 
@@ -60,45 +62,54 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     std::string mesh = "resources/models/Suzanne.glb";
     mesh = "resources/models/Avocado/Avocado.gltf";
 
-    Object3D& original = root.addChild<Object3D>();
+    Object3D& object = root.addChild<Object3D>();
+    object.translate({ 0.0f, 0.0f, -5.0f });
+
     Range3D bounds;
-    bool loaded = loadScene(mesh.c_str(), original, &bounds);
+    bool loaded = loadScene(mesh.c_str(), object, &bounds);
     CORRADE_ASSERT(loaded, "Failed to load scene", );
+
+    float scale = 2.0f / bounds.size().max();
+
+    object.scaleLocal(Vector3(scale));
 
     Vector3 center(float(objectGridSize - 1) / 2.0f);
 
-    for(size_t i = 0; i < objectGridSize; i++)
+    for(ColoredDrawableInstanced3D* drawable : featuresInChildren<ColoredDrawableInstanced3D>(object))
     {
-        for(size_t j = 0; j < objectGridSize; j++)
+        for(size_t i = 0; i < objectGridSize; i++)
         {
-            for(size_t k = 0; k < objectGridSize; k++)
+            for(size_t j = 0; j < objectGridSize; j++)
             {
-                Object3D& duplicate = duplicateObject(original, *original.parent());
-                duplicate.scale(Vector3(2.0f / bounds.size().max()));
-                duplicate.translate((Vector3(i, j, -float(k)) - center) * 4.0f);
-
-                for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(duplicate))
+                for(size_t k = 0; k < objectGridSize; k++)
                 {
-                    drawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+                    Object3D& drawableObject = static_cast<Object3D&>(drawable->object());
+                    Object3D& instance = drawableObject.addChild<Object3D>();
+
+                    Matrix3 toLocal = Matrix3(instance.absoluteTransformationMatrix()).inverted();
+
+                    Vector3 translation = (Vector3(i, j, -float(k)) - center) * 4.0f;
+                    instance.translate(toLocal * translation);
+
+                    InstanceDrawable3D* instanceDrawable =
+                        new InstanceDrawable3D(instance, drawable->getInstanceData());
+                    instanceDrawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+                    drawable->getInstanceDrawables().add(*instanceDrawable);
+
+                    Vector3 localX = toLocal * Vector3::xAxis();
+                    Vector3 localY = toLocal * Vector3::yAxis();
+
+                    SceneGraph::Animable3D* translationAnimable =
+                        new TranslationAnimable3D(instance, localX, 3.0f * localX.length(), 5.5f * localX.length());
+                    meshAnimables.add(*translationAnimable);
+                    SceneGraph::Animable3D* rotationAnimable = new RotationAnimable3D(instance, localY, 90.0_degf);
+                    meshAnimables.add(*rotationAnimable);
+
+                    translationAnimable->setState(SceneGraph::AnimationState::Running);
+                    rotationAnimable->setState(SceneGraph::AnimationState::Running);
                 }
-
-                SceneGraph::Animable3D* translationAnimable =
-                    new TranslationAnimable3D(duplicate, Vector3::xAxis(), 3.0f, 5.5f);
-                meshAnimables.add(*translationAnimable);
-                SceneGraph::Animable3D* rotationAnimable =
-                    new RotationAnimable3D(duplicate, Vector3::yAxis(), 90.0_degf);
-                meshAnimables.add(*rotationAnimable);
-
-                translationAnimable->setState(SceneGraph::AnimationState::Running);
-                rotationAnimable->setState(SceneGraph::AnimationState::Running);
             }
         }
-    }
-
-    // remove original object that was copied in the grid
-    for(TexturedDrawable3D* drawable : featuresInChildren<TexturedDrawable3D>(original))
-    {
-        drawables.remove(*drawable);
     }
 }
 
@@ -131,6 +142,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
     Range3D sceneBounds;
 
     Containers::arrayResize(meshes, meshes.size() + importer->meshCount());
+    Containers::arrayResize(instanceBuffers, instanceBuffers.size() + importer->meshCount());
     for(UnsignedInt i = 0; i < importer->meshCount(); i++)
     {
         Containers::Optional<Trade::MeshData> data = importer->mesh(i);
@@ -146,6 +158,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
                 sceneBounds.max() = Math::max(sceneBounds.max(), meshBounds.max());
             }
             meshes[i] = MeshTools::compile(*data);
+            instanceBuffers[i] = InstanceDrawable3D::addInstancedBuffer(*meshes[i]);
         }
     }
 
@@ -238,11 +251,13 @@ void Scene::addObject(Trade::AbstractImporter& importer,
 
                 if((material.flags() & texturedFlags) == texturedFlags)
                 {
-                    SceneGraph::Drawable3D* drawable = new TexturedDrawable3D(object,
-                                                                              texturedMaterialShader,
-                                                                              *meshes[objectData->instance()],
-                                                                              textures.suffix(textureOffset),
-                                                                              material);
+                    TexturedDrawableInstanced3D* drawable =
+                        new TexturedDrawableInstanced3D(object,
+                                                        texturedMaterialShader,
+                                                        *meshes[objectData->instance()],
+                                                        *instanceBuffers[objectData->instance()],
+                                                        textures.suffix(textureOffset),
+                                                        material);
                     drawables.add(*drawable);
                     textured = true;
                 }
@@ -250,9 +265,15 @@ void Scene::addObject(Trade::AbstractImporter& importer,
 
             if(!textured)
             {
-                SceneGraph::Drawable3D* drawable =
-                    new ColoredDrawable3D(object, coloredMaterialShader, *meshes[objectData->instance()]);
+                ColoredDrawableInstanced3D* drawable =
+                    new ColoredDrawableInstanced3D(object,
+                                                   coloredMaterialShader,
+                                                   *meshes[objectData->instance()],
+                                                   *instanceBuffers[objectData->instance()]);
                 drawables.add(*drawable);
+
+                // by default, there are no instances
+                // add a InstanceDrawable3D to drawable->getInstanceDrawables() for each instance
             }
         }
 
@@ -261,33 +282,4 @@ void Scene::addObject(Trade::AbstractImporter& importer,
             addObject(importer, childObjectId, object, textureOffset);
         }
     }
-}
-
-Scene::Object3D& Scene::duplicateObject(Object3D& object, Object3D& parent)
-{
-    CORRADE_INTERNAL_ASSERT(!object.isScene());
-
-    Object3D& duplicate = parent.addChild<Object3D>();
-    duplicate.setTransformation(object.transformation());
-
-    TexturedDrawable3D* texturedDrawable = feature<TexturedDrawable3D>(object);
-    if(texturedDrawable)
-    {
-        TexturedDrawable3D* newDrawable = new TexturedDrawable3D(*texturedDrawable, duplicate);
-        drawables.add(*newDrawable);
-    }
-
-    ColoredDrawable3D* coloredDrawable = feature<ColoredDrawable3D>(object);
-    if(coloredDrawable)
-    {
-        ColoredDrawable3D* newDrawable = new ColoredDrawable3D(*coloredDrawable, duplicate);
-        drawables.add(*newDrawable);
-    }
-
-    for(Object3D& child : object.children())
-    {
-        duplicateObject(child, duplicate);
-    }
-
-    return duplicate;
 }

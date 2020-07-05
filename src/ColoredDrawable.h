@@ -12,9 +12,7 @@ class ColoredDrawable : public Magnum::SceneGraph::Drawable3D
 public:
     typedef Magnum::SceneGraph::Object<Transform> Object3D;
 
-    explicit ColoredDrawable(Object3D& object,
-                             Magnum::Shaders::Phong& shader,
-                             Magnum::GL::Mesh& mesh) :
+    explicit ColoredDrawable(Object3D& object, Magnum::Shaders::Phong& shader, Magnum::GL::Mesh& mesh) :
         Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), color(1.0f, 1.0f, 1.0f), shininess(80.0f)
     {
     }
