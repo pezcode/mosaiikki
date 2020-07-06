@@ -25,8 +25,8 @@ private:
 
     Magnum::GL::Mesh triangle;
 
-    enum TextureUnits : Magnum::Int
+    enum : Magnum::Int
     {
-        Depth = 0
+        DepthTextureUnit = 0
     };
 };

@@ -14,21 +14,24 @@ using namespace Corrade::Utility;
 
 const std::string MagnumShadersSampleInterpolationOverride::resourceGroup = "MagnumShaders";
 
-MagnumShadersSampleInterpolationOverride::MagnumShadersSampleInterpolationOverride(std::initializer_list<std::string> list)
+MagnumShadersSampleInterpolationOverride::MagnumShadersSampleInterpolationOverride(
+    std::initializer_list<std::string> list)
 {
     if(!Resource::hasGroup(resourceGroup))
         return;
 
     if(!Magnum::GL::Context::current().isExtensionSupported<Magnum::GL::Extensions::ARB::gpu_shader5>())
     {
-        Warning() << "Sample interpolation not supported, requires" << Magnum::GL::Version::GL400 << "or ARB_gpu_shader5";
+        Warning() << "Sample interpolation not supported, requires" << Magnum::GL::Version::GL400
+                  << "or ARB_gpu_shader5";
         return;
     }
 
     Resource rs(resourceGroup);
 
     std::srand(std::time(nullptr));
-    tmpDirectory = Directory::join({ Directory::tmp(), formatString("{}_override_{}", resourceGroup, std::abs(std::rand())) });
+    tmpDirectory =
+        Directory::join({ Directory::tmp(), formatString("{}_override_{}", resourceGroup, std::abs(std::rand())) });
     Directory::mkpath(tmpDirectory);
 
     std::string configFile = Directory::join(tmpDirectory, "override.conf");
@@ -67,7 +70,8 @@ MagnumShadersSampleInterpolationOverride::~MagnumShadersSampleInterpolationOverr
 
     if(!tmpDirectory.empty())
     {
-        for(const std::string& path : Directory::list(tmpDirectory, Directory::Flag::SkipDirectories | Directory::Flag::SkipSpecial))
+        for(const std::string& path :
+            Directory::list(tmpDirectory, Directory::Flag::SkipDirectories | Directory::Flag::SkipSpecial))
             Directory::rm(Directory::join(tmpDirectory, path));
         Directory::rm(tmpDirectory);
     }

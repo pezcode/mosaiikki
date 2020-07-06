@@ -73,4 +73,3 @@ VelocityShader& VelocityShader::setOldProjectionMatrix(const Magnum::Matrix4& ol
     setUniform(oldProjectionMatrixUniform, oldProjectionMatrix);
     return *this;
 }
-

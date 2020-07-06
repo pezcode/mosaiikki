@@ -7,12 +7,9 @@ set(SOURCES
 	Scene.h
 	Scene.cpp
 	VelocityDrawable.h
-	VelocityDrawableInstanced.h
     VelocityInstanceDrawable.h
 	ColoredDrawable.h
-	ColoredDrawableInstanced.h
 	TexturedDrawable.h
-	TexturedDrawableInstanced.h
 	InstanceDrawable.h
 	AxisTranslationAnimable.h
 	AxisRotationAnimable.h
@@ -88,11 +85,9 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 )
 
 # copy resources folder
-
 file(COPY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # install binary + resources
-
 install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION ${MAGNUM_DEPLOY_PREFIX})
 install(DIRECTORY
 	${CMAKE_CURRENT_BINARY_DIR}/resources

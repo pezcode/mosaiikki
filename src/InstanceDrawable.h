@@ -1,9 +1,14 @@
 #pragma once
 
-#include <Magnum/SceneGraph/Object.h>
+
 #include <Magnum/SceneGraph/Drawable.h>
-#include <Magnum/Shaders/Generic.h>
+#include <Magnum/SceneGraph/Object.h>
+#include <Magnum/Math/Matrix4.h>
+#include <Magnum/Math/Matrix3.h>
+#include <Magnum/Math/Color.h>
+#include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
+#include <Magnum/Shaders/Generic.h>
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/GrowableArray.h>
 

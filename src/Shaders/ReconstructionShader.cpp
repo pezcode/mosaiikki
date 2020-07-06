@@ -22,10 +22,7 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
 }
 
 ReconstructionShader::ReconstructionShader(const Flags flags) :
-    _flags(flags),
-    viewport(0, 0),
-    projection(Math::IdentityInit),
-    prevViewProjection(Math::IdentityInit)
+    _flags(flags), viewport(0, 0), projection(Math::IdentityInit), prevViewProjection(Math::IdentityInit)
 {
     triangle = MeshTools::fullScreenTriangle(GLVersion);
 

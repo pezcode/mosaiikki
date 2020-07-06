@@ -3,11 +3,11 @@
 #include "Feature.h"
 
 #include "ColoredDrawable.h"
-#include "ColoredDrawableInstanced.h"
+#include "ColoredDrawable.h"
 #include "TexturedDrawable.h"
-#include "TexturedDrawableInstanced.h"
+#include "TexturedDrawable.h"
 #include "VelocityDrawable.h"
-#include "VelocityDrawableInstanced.h"
+#include "VelocityDrawable.h"
 #include "AxisTranslationAnimable.h"
 #include "AxisRotationAnimable.h"
 #include "Shaders/VelocityShader.h"
@@ -29,19 +29,15 @@
 class Scene
 {
 public:
-
     typedef Magnum::SceneGraph::MatrixTransformation3D Transform3D;
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
-    
+
     typedef ColoredDrawable<Transform3D> ColoredDrawable3D;
-    typedef ColoredDrawableInstanced<Transform3D> ColoredDrawableInstanced3D;
     typedef TexturedDrawable<Transform3D> TexturedDrawable3D;
-    typedef TexturedDrawableInstanced<Transform3D> TexturedDrawableInstanced3D;
     typedef InstanceDrawable<Transform3D> InstanceDrawable3D;
 
     typedef VelocityDrawable<Scene::Transform3D> VelocityDrawable3D;
-    typedef VelocityDrawableInstanced<Scene::Transform3D> VelocityDrawableInstanced3D;
     typedef VelocityInstanceDrawable<Scene::Transform3D> VelocityInstanceDrawable3D;
 
     typedef AxisTranslationAnimable<Transform3D> TranslationAnimable3D;

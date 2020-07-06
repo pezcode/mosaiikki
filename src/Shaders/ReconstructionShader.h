@@ -12,7 +12,6 @@
 class ReconstructionShader : public Magnum::GL::AbstractShaderProgram
 {
 public:
-
     enum : Magnum::UnsignedInt
     {
         ColorOutput = Magnum::Shaders::Generic3D::ColorOutput

@@ -25,7 +25,6 @@ public:
     static constexpr char const* NAME = "mosaiikki";
 
 private:
-
     virtual void drawEvent() override;
     virtual void viewportEvent(ViewportEvent& event) override;
     virtual void keyReleaseEvent(KeyEvent& event) override;

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Shaders/VelocityShader.h"
-#include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/Object.h>
+#include <Magnum/Math/Matrix4.h>
+#include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/GrowableArray.h>

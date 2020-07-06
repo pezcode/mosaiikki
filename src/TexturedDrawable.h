@@ -11,15 +11,15 @@ template<typename Transform>
 class TexturedDrawable : public ColoredDrawable<Transform>
 {
 public:
-    typedef typename ColoredDrawable<Transform>::Object3D Object3D;
-
     explicit TexturedDrawable(
-        Object3D& object,
+        typename ColoredDrawable<Transform>::Object3D& object,
         Magnum::Shaders::Phong& shader,
+        Magnum::UnsignedInt meshId,
         Magnum::GL::Mesh& mesh,
+        Magnum::GL::Buffer& instanceBuffer,
         Corrade::Containers::ArrayView<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures,
         const Magnum::Trade::PhongMaterialData& material) :
-        ColoredDrawable<Transform>(object, shader, mesh), textures(textures), material(material)
+        ColoredDrawable<Transform>(object, shader, meshId, mesh, instanceBuffer), textures(textures), material(material)
     {
         CORRADE_ASSERT(shader.flags() & (Magnum::Shaders::Phong::Flag::AmbientTexture |
                                          Magnum::Shaders::Phong::Flag::DiffuseTexture |
@@ -29,8 +29,11 @@ public:
     }
 
 private:
-    virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
+    virtual void draw(const Magnum::Matrix4& /*transformationMatrix*/, Magnum::SceneGraph::Camera3D& camera) override
     {
+        if(this->_instanceDrawables.isEmpty())
+            return;
+
         Magnum::GL::Texture2D* ambient = material.flags() & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture
                                              ? &*textures[material.ambientTexture()]
                                              : nullptr;
@@ -45,14 +48,18 @@ private:
                                             : nullptr;
 
         // can't access templated base class's members without this->
+
         this->shader.bindTextures(ambient, diffuse, specular, normal)
-            .setDiffuseColor(this->color)
             .setShininess(this->shininess)
-            .setTransformationMatrix(transformationMatrix)
-            .setNormalMatrix(transformationMatrix.normalMatrix())
             .setProjectionMatrix(camera.projectionMatrix());
 
-        this->shader.draw(this->mesh);
+        Corrade::Containers::arrayResize(this->_instanceData, 0);
+        camera.draw(this->_instanceDrawables);
+
+        this->instanceBuffer.setData(this->_instanceData, Magnum::GL::BufferUsage::DynamicDraw);
+        this->_mesh.setInstanceCount(this->_instanceData.size());
+
+        this->shader.draw(this->_mesh);
     }
 
     Corrade::Containers::ArrayView<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;

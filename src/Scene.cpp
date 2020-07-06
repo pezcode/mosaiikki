@@ -61,7 +61,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     // Objects
 
     std::string mesh = "resources/models/Suzanne.glb";
-    mesh = "resources/models/Avocado/Avocado.gltf";
+    //mesh = "resources/models/Avocado/Avocado.gltf";
 
     Object3D& object = root.addChild<Object3D>();
     object.translate({ 0.0f, 0.0f, -5.0f });
@@ -78,12 +78,12 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     // animated objects + associated velocity drawables
 
-    for(ColoredDrawableInstanced3D* drawable : featuresInChildren<ColoredDrawableInstanced3D>(object))
+    for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(object))
     {
         Object3D& drawableObject = static_cast<Object3D&>(drawable->object());
 
         size_t id = drawable->meshId();
-        VelocityDrawableInstanced3D* velocityDrawable = new VelocityDrawableInstanced3D(
+        VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
             drawableObject, velocityShader, id, *velocityMeshes[id], *velocityInstanceBuffers[id]);
         velocityDrawables.add(*velocityDrawable);
 
@@ -279,16 +279,16 @@ void Scene::addObject(Trade::AbstractImporter& importer,
 
                 if((material.flags() & texturedFlags) == texturedFlags)
                 {
-                    TexturedDrawableInstanced3D* drawable =
-                        new TexturedDrawableInstanced3D(object,
-                                                        texturedMaterialShader,
-                                                        meshOffset + objectData->instance(),
-                                                        *meshes[meshOffset + objectData->instance()],
-                                                        *instanceBuffers[meshOffset + objectData->instance()],
-                                                        // TODO this will break once we load a second mesh
-                                                        // array view becomes invalid after array resize
-                                                        textures.suffix(textureOffset),
-                                                        material);
+                    TexturedDrawable3D* drawable =
+                        new TexturedDrawable3D(object,
+                                               texturedMaterialShader,
+                                               meshOffset + objectData->instance(),
+                                               *meshes[meshOffset + objectData->instance()],
+                                               *instanceBuffers[meshOffset + objectData->instance()],
+                                               // TODO this will break once we load a second mesh
+                                               // array view becomes invalid after array resize
+                                               textures.suffix(textureOffset),
+                                               material);
                     drawables.add(*drawable);
                     textured = true;
                 }
@@ -300,12 +300,12 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                 // can we unify textured and colored drawables somehow?
                 // maybe with a white default diffuse texture
                 // or just don't load color-only meshes
-                ColoredDrawableInstanced3D* drawable =
-                    new ColoredDrawableInstanced3D(object,
-                                                   coloredMaterialShader,
-                                                   meshOffset + objectData->instance(),
-                                                   *meshes[meshOffset + objectData->instance()],
-                                                   *instanceBuffers[meshOffset + objectData->instance()]);
+                ColoredDrawable3D* drawable =
+                    new ColoredDrawable3D(object,
+                                          coloredMaterialShader,
+                                          meshOffset + objectData->instance(),
+                                          *meshes[meshOffset + objectData->instance()],
+                                          *instanceBuffers[meshOffset + objectData->instance()]);
                 drawables.add(*drawable);
 
                 // by default, there are no instances
