@@ -12,7 +12,7 @@ class TexturedDrawableInstanced : public ColoredDrawableInstanced<Transform>
 {
 public:
     explicit TexturedDrawableInstanced(
-        Object3D& object,
+        typename ColoredDrawableInstanced<Transform>::Object3D& object,
         Magnum::Shaders::Phong& shader,
         Magnum::UnsignedInt meshId,
         Magnum::GL::Mesh& mesh,
@@ -30,15 +30,10 @@ public:
                        "Phong shader must support at least one texture type", );
     }
 
-    explicit TexturedDrawableInstanced(const TexturedDrawableInstanced& other, Object3D& object) :
-        ColoredDrawableInstanced<Transform>(other, object), textures(other.textures), material(other.material)
-    {
-    }
-
 private:
     virtual void draw(const Magnum::Matrix4& /*transformationMatrix*/, Magnum::SceneGraph::Camera3D& camera) override
     {
-        if(_instanceDrawables.isEmpty())
+        if(this->_instanceDrawables.isEmpty())
             return;
 
         Magnum::GL::Texture2D* ambient = material.flags() & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture
@@ -63,7 +58,7 @@ private:
         Corrade::Containers::arrayResize(this->_instanceData, 0);
         camera.draw(this->_instanceDrawables);
 
-        this->instanceBuffer.setData(this->_instanceData, GL::BufferUsage::DynamicDraw);
+        this->instanceBuffer.setData(this->_instanceData, Magnum::GL::BufferUsage::DynamicDraw);
         this->_mesh.setInstanceCount(this->_instanceData.size());
 
         this->shader.draw(this->_mesh);

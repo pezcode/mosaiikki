@@ -85,4 +85,4 @@ private:
     Magnum::Matrix4 prevViewProjection;
 };
 
-CORRADE_ENUMSET_OPERATORS(ReconstructionShader::Flags);
+CORRADE_ENUMSET_OPERATORS(ReconstructionShader::Flags)

@@ -62,4 +62,4 @@ private:
     Magnum::Int oldProjectionMatrixUniform;
 };
 
-CORRADE_ENUMSET_OPERATORS(VelocityShader::Flags);
+CORRADE_ENUMSET_OPERATORS(VelocityShader::Flags)

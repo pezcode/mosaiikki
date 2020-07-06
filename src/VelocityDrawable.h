@@ -19,14 +19,6 @@ public:
     {
     }
 
-    explicit VelocityDrawable(const VelocityDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object),
-        shader(other.shader),
-        _mesh(other._mesh),
-        oldTransformation(other.oldTransformation)
-    {
-    }
-
     Magnum::GL::Mesh& mesh() const
     {
         return _mesh;

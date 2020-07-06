@@ -523,7 +523,7 @@ void Mosaiikki::buildUI()
         static const char* const debugSamplesOptions[] = { "Combined", "Even", "Odd (jittered)" };
         ImGui::SetNextItemWidth(ImGui::GetWindowWidth() * 0.5f);
         ImGui::Combo("Show samples",
-                     (int*)&options.reconstruction.debug.showSamples,
+                     reinterpret_cast<int*>(&options.reconstruction.debug.showSamples),
                      debugSamplesOptions,
                      Containers::arraySize(debugSamplesOptions));
 

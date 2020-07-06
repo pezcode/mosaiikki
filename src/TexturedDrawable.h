@@ -28,11 +28,6 @@ public:
                        "Phong shader must support at least one texture type", );
     }
 
-    explicit TexturedDrawable(const TexturedDrawable& other, Object3D& object) :
-        ColoredDrawable<Transform>(other, object), textures(other.textures), material(other.material)
-    {
-    }
-
 private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& camera) override
     {

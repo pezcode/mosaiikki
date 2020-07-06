@@ -28,11 +28,6 @@ public:
     {
     }
 
-    explicit VelocityInstanceDrawable(const VelocityInstanceDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object), color(other.color), instanceData(other.instanceData)
-    {
-    }
-
     static Magnum::GL::Buffer addInstancedBuffer(Magnum::GL::Mesh& mesh)
     {
         Magnum::GL::Buffer instanceBuffer(Magnum::GL::Buffer::TargetHint::Array);
@@ -41,7 +36,7 @@ public:
                                       0, // offset
                                       VelocityShader::TransformationMatrix(),
                                       VelocityShader::OldTransformationMatrix());
-        return std::move(instanceBuffer);
+        return Magnum::GL::Buffer(std::move(instanceBuffer));
     }
 
 protected:

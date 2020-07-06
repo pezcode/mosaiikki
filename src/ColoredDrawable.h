@@ -17,15 +17,6 @@ public:
     {
     }
 
-    explicit ColoredDrawable(const ColoredDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object),
-        shader(other.shader),
-        _mesh(other._mesh),
-        color(other.color),
-        shininess(other.shininess)
-    {
-    }
-
     Magnum::GL::Mesh& mesh() const
     {
         return _mesh;

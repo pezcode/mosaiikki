@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Magnum/SceneGraph/Animable.h>
-#include <Magnum/SceneGraph/AbstractTransformation.h>
+#include <Magnum/SceneGraph/AbstractTranslationRotation3D.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/Math/Vector3.h>
 #include <Magnum/Math/Angle.h>

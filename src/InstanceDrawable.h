@@ -23,12 +23,7 @@ public:
     typedef Corrade::Containers::Array<InstanceData> InstanceArray;
 
     explicit InstanceDrawable(Object3D& object, InstanceArray& instanceData) :
-        Magnum::SceneGraph::Drawable3D(object), instanceData(instanceData), color(1.0f, 1.0f, 1.0f)
-    {
-    }
-
-    explicit InstanceDrawable(const InstanceDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object), color(other.color), instanceData(other.instanceData)
+        Magnum::SceneGraph::Drawable3D(object), color(1.0f, 1.0f, 1.0f), instanceData(instanceData)
     {
     }
 
@@ -46,7 +41,7 @@ public:
                                       Magnum::Shaders::Generic3D::TransformationMatrix(),
                                       Magnum::Shaders::Generic3D::NormalMatrix(),
                                       Magnum::Shaders::Generic3D::Color4());
-        return std::move(instanceBuffer);
+        return Magnum::GL::Buffer(std::move(instanceBuffer));
     }
 
 protected:

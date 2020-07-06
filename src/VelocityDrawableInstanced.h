@@ -25,15 +25,6 @@ public:
     {
     }
 
-    explicit VelocityDrawableInstanced(const VelocityDrawableInstanced& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object),
-        shader(other.shader),
-        _meshId(other._meshId),
-        _mesh(other._mesh),
-        instanceBuffer(other.instanceBuffer)
-    {
-    }
-
     Magnum::UnsignedInt meshId() const
     {
         return _meshId;
@@ -63,7 +54,7 @@ private:
         Corrade::Containers::arrayResize(_instanceData, 0);
         camera.draw(_instanceDrawables);
 
-        instanceBuffer.setData(_instanceData, GL::BufferUsage::DynamicDraw);
+        instanceBuffer.setData(_instanceData, Magnum::GL::BufferUsage::DynamicDraw);
         _mesh.setInstanceCount(_instanceData.size());
 
         shader.draw(_mesh);
