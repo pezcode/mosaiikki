@@ -3,10 +3,7 @@
 #include "ImGuiApplication.h"
 #include "Options.h"
 #include "Scene.h"
-#include "VelocityDrawable.h"
-#include "VelocityDrawableInstanced.h"
 #include "Shaders/ReconstructionShader.h"
-#include "Shaders/VelocityShader.h"
 #include "Shaders/DepthBlitShader.h"
 #include <Magnum/Timeline.h>
 #include <Magnum/GL/GL.h>
@@ -28,10 +25,6 @@ public:
     static constexpr char const* NAME = "mosaiikki";
 
 private:
-
-    typedef VelocityDrawable<Scene::Transform3D> VelocityDrawable3D;
-    typedef VelocityDrawableInstanced<Scene::Transform3D> VelocityDrawableInstanced3D;
-    typedef VelocityInstanceDrawable<Scene::Transform3D> VelocityInstanceDrawable3D;
 
     virtual void drawEvent() override;
     virtual void viewportEvent(ViewportEvent& event) override;
@@ -60,8 +53,6 @@ private:
 
     Magnum::Timeline timeline;
 
-    Magnum::SceneGraph::DrawableGroup3D velocityDrawables; // moving objects that contribute to the velocity buffer
-
     bool paused = false;
     bool advanceOneFrame = false;
 
@@ -72,8 +63,6 @@ private:
     Magnum::GL::Framebuffer velocityFramebuffer;
     Magnum::GL::Texture2D velocityAttachment;
     Magnum::GL::Texture2D velocityDepthAttachment;
-
-    VelocityShader velocityShader;
 
     static constexpr size_t FRAMES = 2;
     static constexpr size_t JITTERED_FRAME = 1;

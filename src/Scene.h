@@ -6,8 +6,11 @@
 #include "ColoredDrawableInstanced.h"
 #include "TexturedDrawable.h"
 #include "TexturedDrawableInstanced.h"
+#include "VelocityDrawable.h"
+#include "VelocityDrawableInstanced.h"
 #include "AxisTranslationAnimable.h"
 #include "AxisRotationAnimable.h"
+#include "Shaders/VelocityShader.h"
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
@@ -37,6 +40,10 @@ public:
     typedef TexturedDrawableInstanced<Transform3D> TexturedDrawableInstanced3D;
     typedef InstanceDrawable<Transform3D> InstanceDrawable3D;
 
+    typedef VelocityDrawable<Scene::Transform3D> VelocityDrawable3D;
+    typedef VelocityDrawableInstanced<Scene::Transform3D> VelocityDrawableInstanced3D;
+    typedef VelocityInstanceDrawable<Scene::Transform3D> VelocityInstanceDrawable3D;
+
     typedef AxisTranslationAnimable<Transform3D> TranslationAnimable3D;
     typedef AxisRotationAnimable<Transform3D> RotationAnimable3D;
 
@@ -56,33 +63,40 @@ public:
     void addObject(Magnum::Trade::AbstractImporter& importer,
                    Magnum::UnsignedInt objectId,
                    Object3D& parent,
+                   Magnum::UnsignedInt meshOffset = 0,
+                   Magnum::UnsignedInt materialOffset = 0,
                    Magnum::UnsignedInt textureOffset = 0);
 
+    // normal meshes with default instance data (transformation, normal matrix, color)
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Buffer>> instanceBuffers;
-    // TODO
-    // velocity meshes
-    // how do we create velocity instance renderables from normal renderables
-    // need to find the corresponding GL::Mesh somehow
-    // velocity instance buffer
 
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
+    // meshes with instance data for the velocity shader (transformation, old transformation)
+    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> velocityMeshes;
+    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Buffer>> velocityInstanceBuffers;
+
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::Trade::PhongMaterialData>> materials;
+    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
 
     Scene3D scene;
-    Object3D root, cameraObject;
-    Corrade::Containers::Pointer<Magnum::SceneGraph::Camera3D> camera;
-    Magnum::SceneGraph::DrawableGroup3D drawables;
+    Object3D root;
 
+    Object3D cameraObject;
+    Corrade::Containers::Pointer<Magnum::SceneGraph::Camera3D> camera;
     float cameraNear = 1.0f;
     float cameraFar = 50.0f;
 
     Magnum::SceneGraph::AnimableGroup3D meshAnimables;
     Magnum::SceneGraph::AnimableGroup3D cameraAnimables;
+
+    Magnum::SceneGraph::DrawableGroup3D drawables;
+    Magnum::SceneGraph::DrawableGroup3D velocityDrawables; // moving objects that contribute to the velocity buffer
+
     static constexpr size_t objectGridSize = 6;
     Corrade::Containers::Array<Magnum::Vector3> lightPositions;
     Corrade::Containers::Array<Magnum::Color4> lightColors;
 
     Magnum::Shaders::Phong coloredMaterialShader;
     Magnum::Shaders::Phong texturedMaterialShader;
+    VelocityShader velocityShader;
 };

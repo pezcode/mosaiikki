@@ -6,6 +6,7 @@
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/Shaders/Generic.h>
 #include <Magnum/SceneGraph/Camera.h>
+#include <Corrade/Containers/EnumSet.h>
 #include "Options.h"
 
 class ReconstructionShader : public Magnum::GL::AbstractShaderProgram
@@ -17,26 +18,41 @@ public:
         ColorOutput = Magnum::Shaders::Generic3D::ColorOutput
     };
 
+    enum class Flag : Magnum::UnsignedShort
+    {
+        // Debug output (configured through setOptions)
+        Debug = 1 << 0
+    };
+
+    typedef Corrade::Containers::EnumSet<Flag> Flags;
+
     explicit ReconstructionShader(Magnum::NoCreateT);
-    explicit ReconstructionShader();
+    explicit ReconstructionShader(const Flags flags);
+
+    Flags flags() const
+    {
+        return _flags;
+    };
 
     ReconstructionShader& bindColor(Magnum::GL::MultisampleTexture2DArray& attachment);
     ReconstructionShader& bindDepth(Magnum::GL::MultisampleTexture2DArray& attachment);
     ReconstructionShader& bindVelocity(Magnum::GL::Texture2D& attachment);
     ReconstructionShader& setCurrentFrame(Magnum::Int currentFrame);
-    // camera should be const, but camera.cameraMatrix() is not :(
     ReconstructionShader& setCameraInfo(Magnum::SceneGraph::Camera3D& camera, float nearPlane, float farPlane);
     ReconstructionShader& setOptions(const Options::Reconstruction& options);
 
-    // normally you call _mesh.draw(shader)
-    // but we supply our own _mesh for a fullscreen pass
+    // normally you call mesh.draw(shader)
+    // but we supply our own mesh for a fullscreen pass
     void draw();
 
 private:
+    using Magnum::GL::AbstractShaderProgram::draw;
     using Magnum::GL::AbstractShaderProgram::drawTransformFeedback;
     using Magnum::GL::AbstractShaderProgram::dispatchCompute;
 
     static constexpr Magnum::GL::Version GLVersion = Magnum::GL::Version::GL300;
+
+    Flags _flags;
 
     Magnum::GL::Mesh triangle;
 
@@ -68,3 +84,5 @@ private:
     Magnum::Matrix4 projection;
     Magnum::Matrix4 prevViewProjection;
 };
+
+CORRADE_ENUMSET_OPERATORS(ReconstructionShader::Flags);

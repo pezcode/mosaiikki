@@ -29,7 +29,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
-    velocityShader(NoCreate),
     framebuffers { GL::Framebuffer(NoCreate), GL::Framebuffer(NoCreate) },
     colorAttachments(NoCreate),
     depthAttachments(NoCreate),
@@ -95,12 +94,13 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // TODO remove
     // ASAN test
-
+    /*
     char* test = new char[2];
     test[1] = 0;
     test[2] = 0;
 
     Debug() << test;
+    */
 
     // Command line
 
@@ -126,13 +126,14 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // Shaders
 
-    // why does this suddenly not compile anymore?
-    velocityShader = VelocityShader(VelocityShader::Flag::InstancedTransformation);
-
     depthBlitShader = DepthBlitShader();
     depthBlitShader.setLabel("Depth blit shader");
 
-    reconstructionShader = ReconstructionShader();
+    ReconstructionShader::Flags reconstructionFlags;
+#ifdef CORRADE_IS_DEBUG_BUILD
+    reconstructionFlags |= ReconstructionShader::Flag::Debug;
+#endif
+    reconstructionShader = ReconstructionShader(reconstructionFlags);
     reconstructionShader.setLabel("Checkerboard resolve shader");
 
     // Scene
@@ -155,38 +156,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
             texture->setLodBias(-0.5f);
         }
     }
-
-    // register all animated objects for the velocity pass
-    /*
-    for(Scene::ColoredDrawable3D* drawable : featuresInChildren<Scene::ColoredDrawable3D>(scene->root))
-    {
-        VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
-            static_cast<Scene::Object3D&>(drawable->object()), velocityShader, drawable->_mesh());
-        velocityDrawables.add(*velocityDrawable);
-    }
-    */
-
-    // TODO instanced
-    /*
-    for(Scene::ColoredDrawableInstanced3D* drawable :
-        featuresInChildren<Scene::ColoredDrawableInstanced3D>(scene->root))
-    {
-        Scene::Object3D& object = static_cast<Scene::Object3D&>(drawable->object());
-
-        VelocityDrawableInstanced3D* velocityDrawable = new VelocityDrawableInstanced3D(
-            object, velocityShader, drawable->_mesh());
-        velocityDrawables.add(*velocityDrawable);
-
-        for(Scene::InstanceDrawable3D* instanceDrawable : featuresInChildren<Scene::InstanceDrawable3D>(object))
-        {
-            Scene::Object3D& instance = static_cast<Scene::Object3D&>(instanceDrawable->object());
-
-            VelocityInstanceDrawable3D* velocityInstanceDrawable =
-                new VelocityInstanceDrawable3D(instance, velocityDrawable->instanceData());
-            velocityDrawable->instanceDrawables().add(*velocityInstanceDrawable);
-        }
-    }
-    */
 
     scene->camera->setViewport(framebufferSize());
     updateProjectionMatrix(*scene->camera);
@@ -373,9 +342,9 @@ void Mosaiikki::drawEvent()
                 // use current frame's jitter
                 // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
                 // without it, you can use either jittered or unjittered, as long as they match
-                velocityShader.setProjectionMatrix(matrices[currentFrame]).setOldProjectionMatrix(oldMatrices[currentFrame]);
+                scene->velocityShader.setProjectionMatrix(matrices[currentFrame]).setOldProjectionMatrix(oldMatrices[currentFrame]);
 
-                scene->camera->draw(velocityDrawables);
+                scene->camera->draw(scene->velocityDrawables);
             }
         }
 
@@ -652,7 +621,7 @@ void Mosaiikki::buildUI()
                                                                        : SceneGraph::AnimationState::Paused);
     }
 
-    // TODO rotation instead of translation animation
+    // TODO rotation (e.g. panning) instead of translation animation
     if(scene->cameraAnimables.size() > 0)
         scene->cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
                                                                         : SceneGraph::AnimationState::Paused);

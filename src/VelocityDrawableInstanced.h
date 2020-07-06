@@ -14,26 +14,32 @@ public:
 
     explicit VelocityDrawableInstanced(Object3D& object,
                                        VelocityShader& shader,
+                                       Magnum::UnsignedInt meshId,
                                        Magnum::GL::Mesh& mesh,
                                        Magnum::GL::Buffer& instanceBuffer) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(shader),
+        _meshId(meshId),
         _mesh(mesh),
-        instanceBuffer(instanceBuffer),
-        oldTransformation(Magnum::Math::IdentityInit)
+        instanceBuffer(instanceBuffer)
     {
     }
 
     explicit VelocityDrawableInstanced(const VelocityDrawableInstanced& other, Object3D& object) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(other.shader),
+        _meshId(other._meshId),
         _mesh(other._mesh),
-        instanceBuffer(other.instanceBuffer),
-        oldTransformation(other.oldTransformation)
+        instanceBuffer(other.instanceBuffer)
     {
     }
 
-    Magnum::GL::Mesh& mesh() const
+    Magnum::UnsignedInt meshId() const
+    {
+        return _meshId;
+    }
+
+    Magnum::GL::Mesh& mesh()
     {
         return _mesh;
     }
@@ -64,6 +70,7 @@ private:
     }
 
     VelocityShader& shader;
+    Magnum::UnsignedInt _meshId;
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;
     Magnum::SceneGraph::DrawableGroup3D _instanceDrawables;

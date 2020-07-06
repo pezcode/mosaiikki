@@ -21,8 +21,8 @@ ReconstructionShader::ReconstructionShader(NoCreateT) :
 {
 }
 
-ReconstructionShader::ReconstructionShader() :
-    GL::AbstractShaderProgram(),
+ReconstructionShader::ReconstructionShader(const Flags flags) :
+    _flags(flags),
     viewport(0, 0),
     projection(Math::IdentityInit),
     prevViewProjection(Math::IdentityInit)
@@ -33,10 +33,10 @@ ReconstructionShader::ReconstructionShader() :
     GL::Shader frag(GLVersion, GL::Shader::Type::Fragment);
 
     Utility::Resource rs("shaders");
+
     vert.addSource(rs.get("ReconstructionShader.vert"));
-#ifdef CORRADE_IS_DEBUG_BUILD
-    frag.addSource("#define DEBUG");
-#endif
+
+    frag.addSource(flags & Flag::Debug ? "#define DEBUG\n" : "");
     frag.addSource(Utility::formatString("#define COLOR_OUTPUT_ATTRIBUTE_LOCATION {}\n", ColorOutput));
     frag.addSource(rs.get("ReconstructionShader.frag"));
 

@@ -18,9 +18,10 @@ using namespace Magnum;
 using namespace Magnum::Math::Literals;
 using namespace Feature;
 
-Scene::Scene(NoCreateT) : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate) { }
+Scene::Scene(NoCreateT) :
+    coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate), velocityShader(NoCreate) { }
 
-Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate)
+Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate), velocityShader(NoCreate)
 {
     // Scene
 
@@ -41,21 +42,21 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     coloredMaterialShader = Shaders::Phong(
         Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor, lightPositions.size());
+    coloredMaterialShader.setLightPositions(lightPositions);
+    coloredMaterialShader.setLightColors(lightColors);
+    coloredMaterialShader.setLabel("Material shader (colored)");
 
     texturedMaterialShader =
         Shaders::Phong(Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor |
                            Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
                            Shaders::Phong::Flag::NormalTexture,
                        lightPositions.size());
-
-    coloredMaterialShader.setAmbientColor(0x111111_rgbf);
-    coloredMaterialShader.setLightPositions(lightPositions);
-    coloredMaterialShader.setLightColors(lightColors);
-    coloredMaterialShader.setLabel("Material shader (colored)");
-
     texturedMaterialShader.setLightPositions(lightPositions);
-    coloredMaterialShader.setLightColors(lightColors);
+    texturedMaterialShader.setLightColors(lightColors);
     texturedMaterialShader.setLabel("Material shader (textured)");
+
+    velocityShader = VelocityShader(VelocityShader::Flag::InstancedTransformation);
+    velocityShader.setLabel("Velocity shader");
 
     // Objects
 
@@ -75,15 +76,23 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     Vector3 center(float(objectGridSize - 1) / 2.0f);
 
+    // animated objects + associated velocity drawables
+
     for(ColoredDrawableInstanced3D* drawable : featuresInChildren<ColoredDrawableInstanced3D>(object))
     {
+        Object3D& drawableObject = static_cast<Object3D&>(drawable->object());
+
+        size_t id = drawable->meshId();
+        VelocityDrawableInstanced3D* velocityDrawable = new VelocityDrawableInstanced3D(
+            drawableObject, velocityShader, id, *velocityMeshes[id], *velocityInstanceBuffers[id]);
+        velocityDrawables.add(*velocityDrawable);
+
         for(size_t i = 0; i < objectGridSize; i++)
         {
             for(size_t j = 0; j < objectGridSize; j++)
             {
                 for(size_t k = 0; k < objectGridSize; k++)
                 {
-                    Object3D& drawableObject = static_cast<Object3D&>(drawable->object());
                     Object3D& instance = drawableObject.addChild<Object3D>();
 
                     Matrix3 toLocal = Matrix3(instance.absoluteTransformationMatrix()).inverted();
@@ -91,8 +100,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
                     Vector3 translation = (Vector3(i, j, -float(k)) - center) * 4.0f;
                     instance.translate(toLocal * translation);
 
-                    InstanceDrawable3D* instanceDrawable =
-                        new InstanceDrawable3D(instance, drawable->instanceData());
+                    InstanceDrawable3D* instanceDrawable = new InstanceDrawable3D(instance, drawable->instanceData());
                     instanceDrawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
                     drawable->instanceDrawables().add(*instanceDrawable);
 
@@ -107,6 +115,10 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
                     translationAnimable->setState(SceneGraph::AnimationState::Running);
                     rotationAnimable->setState(SceneGraph::AnimationState::Running);
+
+                    VelocityInstanceDrawable3D* velocityInstanceDrawable =
+                        new VelocityInstanceDrawable3D(instance, velocityDrawable->instanceData());
+                    velocityDrawable->instanceDrawables().add(*velocityInstanceDrawable);
                 }
             }
         }
@@ -139,10 +151,14 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 
     // extract and compile meshes
 
-    Range3D sceneBounds;
-
+    Magnum::UnsignedInt meshOffset = meshes.size();
     Containers::arrayResize(meshes, meshes.size() + importer->meshCount());
     Containers::arrayResize(instanceBuffers, instanceBuffers.size() + importer->meshCount());
+    Containers::arrayResize(velocityMeshes, velocityMeshes.size() + importer->meshCount());
+    Containers::arrayResize(velocityInstanceBuffers, velocityInstanceBuffers.size() + importer->meshCount());
+
+    Range3D sceneBounds;
+
     for(UnsignedInt i = 0; i < importer->meshCount(); i++)
     {
         Containers::Optional<Trade::MeshData> data = importer->mesh(i);
@@ -164,6 +180,9 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 
             meshes[i] = MeshTools::compile(*data, indices, vertices);
             instanceBuffers[i] = InstanceDrawable3D::addInstancedBuffer(*meshes[i]);
+
+            velocityMeshes[i] = MeshTools::compile(*data, indices, vertices);
+            velocityInstanceBuffers[i] = VelocityInstanceDrawable3D::addInstancedBuffer(*velocityMeshes[i]);
         }
     }
 
@@ -172,7 +191,9 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 
     // load materials
 
+    Magnum::UnsignedInt materialOffset = materials.size();
     Containers::arrayResize(materials, materials.size() + importer->materialCount());
+
     for(UnsignedInt i = 0; i < importer->materialCount(); i++)
     {
         Containers::Pointer<Trade::AbstractMaterialData> data = importer->material(i);
@@ -185,8 +206,8 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
     // load textures
 
     Magnum::UnsignedInt textureOffset = textures.size();
-
     Containers::arrayResize(textures, textures.size() + importer->textureCount());
+
     for(UnsignedInt i = 0; i < importer->textureCount(); i++)
     {
         Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
@@ -223,7 +244,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 
     for(UnsignedInt objectId : sceneData->children3D())
     {
-        addObject(*importer, objectId, parent, textureOffset);
+        addObject(*importer, objectId, parent, meshOffset, materialOffset, textureOffset);
     }
 
     return true;
@@ -232,6 +253,8 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 void Scene::addObject(Trade::AbstractImporter& importer,
                       UnsignedInt objectId,
                       Object3D& parent,
+                      Magnum::UnsignedInt meshOffset,
+                      Magnum::UnsignedInt materialOffset,
                       Magnum::UnsignedInt textureOffset)
 {
     // meshes are compiled and accessible at this point
@@ -243,13 +266,13 @@ void Scene::addObject(Trade::AbstractImporter& importer,
         object.setTransformation(objectData->transformation());
 
         if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
-           meshes[objectData->instance()])
+           meshes[meshOffset + objectData->instance()])
         {
             bool textured = false;
             const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
-            if(materialId != -1 && materials[materialId])
+            if(materialId != -1 && materials[materialOffset + materialId])
             {
-                const Trade::PhongMaterialData& material = *materials[materialId];
+                const Trade::PhongMaterialData& material = *materials[materialOffset + materialId];
                 constexpr Trade::PhongMaterialData::Flags texturedFlags =
                     Trade::PhongMaterialData::Flag::DiffuseTexture | Trade::PhongMaterialData::Flag::SpecularTexture |
                     Trade::PhongMaterialData::Flag::NormalTexture;
@@ -259,8 +282,11 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                     TexturedDrawableInstanced3D* drawable =
                         new TexturedDrawableInstanced3D(object,
                                                         texturedMaterialShader,
-                                                        *meshes[objectData->instance()],
-                                                        *instanceBuffers[objectData->instance()],
+                                                        meshOffset + objectData->instance(),
+                                                        *meshes[meshOffset + objectData->instance()],
+                                                        *instanceBuffers[meshOffset + objectData->instance()],
+                                                        // TODO this will break once we load a second mesh
+                                                        // array view becomes invalid after array resize
                                                         textures.suffix(textureOffset),
                                                         material);
                     drawables.add(*drawable);
@@ -277,8 +303,9 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                 ColoredDrawableInstanced3D* drawable =
                     new ColoredDrawableInstanced3D(object,
                                                    coloredMaterialShader,
-                                                   *meshes[objectData->instance()],
-                                                   *instanceBuffers[objectData->instance()]);
+                                                   meshOffset + objectData->instance(),
+                                                   *meshes[meshOffset + objectData->instance()],
+                                                   *instanceBuffers[meshOffset + objectData->instance()]);
                 drawables.add(*drawable);
 
                 // by default, there are no instances

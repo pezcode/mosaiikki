@@ -53,7 +53,7 @@ private:
 
     static constexpr Magnum::GL::Version GLVersion = Magnum::GL::Version::GL300;
 
-    const Flags _flags;
+    Flags _flags;
 
     Magnum::Int transformationMatrixUniform;
     Magnum::Int oldTransformationMatrixUniform;
@@ -61,3 +61,5 @@ private:
     Magnum::Int projectionMatrixUniform;
     Magnum::Int oldProjectionMatrixUniform;
 };
+
+CORRADE_ENUMSET_OPERATORS(VelocityShader::Flags);

@@ -12,11 +12,12 @@ public:
 
     DepthBlitShader& bindDepth(Magnum::GL::Texture2D& attachment);
 
-    // normally you call _mesh.draw(shader)
-    // but we supply our own _mesh for a fullscreen pass
+    // normally you call mesh.draw(shader)
+    // but we supply our own mesh for a fullscreen pass
     void draw();
 
 private:
+    using Magnum::GL::AbstractShaderProgram::draw;
     using Magnum::GL::AbstractShaderProgram::drawTransformFeedback;
     using Magnum::GL::AbstractShaderProgram::dispatchCompute;
 

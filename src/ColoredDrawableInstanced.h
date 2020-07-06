@@ -19,10 +19,12 @@ public:
 
     explicit ColoredDrawableInstanced(Object3D& object,
                                       Magnum::Shaders::Phong& shader,
+                                      Magnum::UnsignedInt meshId,
                                       Magnum::GL::Mesh& mesh,
                                       Magnum::GL::Buffer& instanceBuffer) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(shader),
+        _meshId(meshId),
         _mesh(mesh),
         instanceBuffer(instanceBuffer),
         shininess(80.0f)
@@ -32,13 +34,19 @@ public:
     explicit ColoredDrawableInstanced(const ColoredDrawableInstanced& other, Object3D& object) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(other.shader),
+        _meshId(other._meshId),
         _mesh(other._mesh),
         instanceBuffer(other.instanceBuffer),
         shininess(other.shininess)
     {
     }
 
-    Magnum::GL::Mesh& mesh() const
+    Magnum::UnsignedInt meshId() const
+    {
+        return _meshId;
+    }
+
+    Magnum::GL::Mesh& mesh()
     {
         return _mesh;
     }
@@ -76,6 +84,7 @@ protected:
     }
 
     Magnum::Shaders::Phong& shader;
+    Magnum::UnsignedInt _meshId;
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;
     Magnum::SceneGraph::DrawableGroup3D _instanceDrawables;

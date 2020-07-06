@@ -14,11 +14,12 @@ public:
     explicit TexturedDrawableInstanced(
         Object3D& object,
         Magnum::Shaders::Phong& shader,
+        Magnum::UnsignedInt meshId,
         Magnum::GL::Mesh& mesh,
         Magnum::GL::Buffer& instanceBuffer,
         Corrade::Containers::ArrayView<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures,
         const Magnum::Trade::PhongMaterialData& material) :
-        ColoredDrawableInstanced<Transform>(object, shader, mesh, instanceBuffer),
+        ColoredDrawableInstanced<Transform>(object, shader, meshId, mesh, instanceBuffer),
         textures(textures),
         material(material)
     {

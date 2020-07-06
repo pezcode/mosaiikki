@@ -16,7 +16,6 @@ public:
     struct InstanceData
     {
         Magnum::Matrix4 transformationMatrix;
-        //Magnum::Matrix4 oldTransformationMatrix;
         Magnum::Matrix3 normalMatrix;
         Magnum::Color4 color;
     };
@@ -24,16 +23,12 @@ public:
     typedef Corrade::Containers::Array<InstanceData> InstanceArray;
 
     explicit InstanceDrawable(Object3D& object, InstanceArray& instanceData) :
-        Magnum::SceneGraph::Drawable3D(object), instanceData(instanceData), color(1.0f, 1.0f, 1.0f) //,
-    //oldTransformationMatrix(Magnum::Math::IdentityInit)
+        Magnum::SceneGraph::Drawable3D(object), instanceData(instanceData), color(1.0f, 1.0f, 1.0f)
     {
     }
 
     explicit InstanceDrawable(const InstanceDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object),
-        color(other.color),
-        //oldTransformationMatrix(other.oldTransformationMatrix),
-        instanceData(other.instanceData)
+        Magnum::SceneGraph::Drawable3D(object), color(other.color), instanceData(other.instanceData)
     {
     }
 
@@ -49,9 +44,6 @@ public:
                                       1, // divisor
                                       0, // offset
                                       Magnum::Shaders::Generic3D::TransformationMatrix(),
-                                      // TODO find attribute position for old transformation
-                                      // no contiguous space for one matrix
-                                      // split it? only 4, 6, 7, 15 are free
                                       Magnum::Shaders::Generic3D::NormalMatrix(),
                                       Magnum::Shaders::Generic3D::Color4());
         return std::move(instanceBuffer);
@@ -60,14 +52,11 @@ public:
 protected:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& /* camera */) override
     {
-        Corrade::Containers::arrayAppend(
-            instanceData,
-            { transformationMatrix, /*oldTransformationMatrix,*/ transformationMatrix.normalMatrix(), color });
-        //oldTransformationMatrix = transformationMatrix;
+        Corrade::Containers::arrayAppend(instanceData,
+                                         { transformationMatrix, transformationMatrix.normalMatrix(), color });
     }
 
     Magnum::Color4 color;
-    //Magnum::Matrix4 oldTransformationMatrix;
 
     InstanceArray& instanceData;
 };
