@@ -3,25 +3,36 @@
 #include <Magnum/GL/Shader.h>
 #include <Corrade/Containers/Reference.h>
 #include <Corrade/Utility/Resource.h>
+#include <Corrade/Utility/FormatStl.h>
 
 using namespace Magnum;
 
 VelocityShader::VelocityShader(NoCreateT) :
     GL::AbstractShaderProgram(NoCreate),
-    oldModelViewProjectionUniform(-1),
-    modelViewProjectionUniform(-1),
-    oldProjection(Math::IdentityInit),
-    projection(Math::IdentityInit)
+    transformationMatrixUniform(-1),
+    oldTransformationMatrixUniform(-1),
+    projectionMatrixUniform(-1),
+    oldProjectionMatrixUniform(-1)
 {
 }
 
-VelocityShader::VelocityShader() : GL::AbstractShaderProgram()
+VelocityShader::VelocityShader(const Flags flags) : _flags(flags)
 {
     GL::Shader vert(GLVersion, GL::Shader::Type::Vertex);
     GL::Shader frag(GLVersion, GL::Shader::Type::Fragment);
 
     Utility::Resource rs("shaders");
+
+    vert.addSource(flags & Flag::InstancedTransformation ? "#define INSTANCED_TRANSFORMATION\n" : "");
+    vert.addSource(Utility::formatString("#define POSITION_ATTRIBUTE_LOCATION {}\n"
+                                         "#define TRANSFORMATION_ATTRIBUTE_LOCATION {}\n"
+                                         "#define OLD_TRANSFORMATION_ATTRIBUTE_LOCATION {}\n",
+                                         Shaders::Generic3D::Position::Location,
+                                         TransformationMatrix::Location,
+                                         OldTransformationMatrix::Location));
     vert.addSource(rs.get("VelocityShader.vert"));
+
+    frag.addSource(Utility::formatString("#define VELOCITY_OUTPUT_ATTRIBUTE_LOCATION {}\n", VelocityOutput));
     frag.addSource(rs.get("VelocityShader.frag"));
 
     bool compiled = GL::Shader::compile({ vert, frag });
@@ -29,30 +40,37 @@ VelocityShader::VelocityShader() : GL::AbstractShaderProgram()
     attachShaders({ vert, frag });
     link();
 
-    oldModelViewProjectionUniform = uniformLocation("oldModelViewProjection");
-    modelViewProjectionUniform = uniformLocation("modelViewProjection");
+    transformationMatrixUniform = uniformLocation("transformationMatrix");
+    oldTransformationMatrixUniform = uniformLocation("oldTransformationMatrix");
+
+    setUniform(transformationMatrixUniform, Matrix4(Math::IdentityInit));
+    setUniform(oldTransformationMatrixUniform, Matrix4(Math::IdentityInit));
+
+    projectionMatrixUniform = uniformLocation("projectionMatrix");
+    oldProjectionMatrixUniform = uniformLocation("oldProjectionMatrix");
 }
 
-VelocityShader& VelocityShader::setOldTransformation(const Magnum::Matrix4& oldTransformationMatrix)
+VelocityShader& VelocityShader::setTransformationMatrix(const Magnum::Matrix4& transformationMatrix)
 {
-    setUniform(oldModelViewProjectionUniform, oldProjection * oldTransformationMatrix);
+    setUniform(transformationMatrixUniform, transformationMatrix);
     return *this;
 }
 
-VelocityShader& VelocityShader::setTransformation(const Magnum::Matrix4& transformationMatrix)
+VelocityShader& VelocityShader::setOldTransformationMatrix(const Magnum::Matrix4& oldTransformationMatrix)
 {
-    setUniform(modelViewProjectionUniform, projection * transformationMatrix);
+    setUniform(oldTransformationMatrixUniform, oldTransformationMatrix);
     return *this;
 }
 
-VelocityShader& VelocityShader::setOldProjection(const Magnum::Matrix4& oldProjectionMatrix)
+VelocityShader& VelocityShader::setProjectionMatrix(const Magnum::Matrix4& projectionMatrix)
 {
-    oldProjection = oldProjectionMatrix;
+    setUniform(projectionMatrixUniform, projectionMatrix);
     return *this;
 }
 
-VelocityShader& VelocityShader::setProjection(const Magnum::Matrix4& projectionMatrix)
+VelocityShader& VelocityShader::setOldProjectionMatrix(const Magnum::Matrix4& oldProjectionMatrix)
 {
-    projection = projectionMatrix;
+    setUniform(oldProjectionMatrixUniform, oldProjectionMatrix);
     return *this;
 }
+

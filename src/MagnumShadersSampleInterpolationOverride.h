@@ -6,7 +6,7 @@
 class MagnumShadersSampleInterpolationOverride
 {
 public:
-    MagnumShadersSampleInterpolationOverride(std::initializer_list<std::string> list);
+    explicit MagnumShadersSampleInterpolationOverride(std::initializer_list<std::string> list);
     ~MagnumShadersSampleInterpolationOverride();
 
 private:

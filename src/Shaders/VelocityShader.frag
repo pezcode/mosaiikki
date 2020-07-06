@@ -1,6 +1,11 @@
+// layout(location = ...)
+// core in 3.3
+#extension GL_ARB_explicit_attrib_location : require
+
 in vec4 clipPos;
 in vec4 oldClipPos;
-out vec4 velocity;
+
+layout(location = VELOCITY_OUTPUT_ATTRIBUTE_LOCATION) out vec4 velocity;
 
 void main()
 {

@@ -60,6 +60,12 @@ public:
 
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Buffer>> instanceBuffers;
+    // TODO
+    // velocity meshes
+    // how do we create velocity instance renderables from normal renderables
+    // need to find the corresponding GL::Mesh somehow
+    // velocity instance buffer
+
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
     Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::Trade::PhongMaterialData>> materials;
 

@@ -4,6 +4,7 @@
 #include "Options.h"
 #include "Scene.h"
 #include "VelocityDrawable.h"
+#include "VelocityDrawableInstanced.h"
 #include "Shaders/ReconstructionShader.h"
 #include "Shaders/VelocityShader.h"
 #include "Shaders/DepthBlitShader.h"
@@ -29,6 +30,8 @@ public:
 private:
 
     typedef VelocityDrawable<Scene::Transform3D> VelocityDrawable3D;
+    typedef VelocityDrawableInstanced<Scene::Transform3D> VelocityDrawableInstanced3D;
+    typedef VelocityInstanceDrawable<Scene::Transform3D> VelocityInstanceDrawable3D;
 
     virtual void drawEvent() override;
     virtual void viewportEvent(ViewportEvent& event) override;

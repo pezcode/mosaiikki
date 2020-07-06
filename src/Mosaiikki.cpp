@@ -103,10 +103,9 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     Debug() << test;
 
     // Command line
-    
+
     Utility::Arguments parser;
-    parser
-        .addOption("font", "resources/fonts/Roboto-Regular.ttf")
+    parser.addOption("font", "resources/fonts/Roboto-Regular.ttf")
         .setHelp("font", "GUI font to load")
         .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
         .setGlobalHelp("Checkered rendering experiment.");
@@ -127,7 +126,8 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // Shaders
 
-    velocityShader = VelocityShader();
+    // why does this suddenly not compile anymore?
+    velocityShader = VelocityShader(VelocityShader::Flag::InstancedTransformation);
 
     depthBlitShader = DepthBlitShader();
     depthBlitShader.setLabel("Depth blit shader");
@@ -157,12 +157,36 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     }
 
     // register all animated objects for the velocity pass
+    /*
     for(Scene::ColoredDrawable3D* drawable : featuresInChildren<Scene::ColoredDrawable3D>(scene->root))
     {
         VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
-            static_cast<Scene::Object3D&>(drawable->object()), velocityShader, drawable->getMesh());
+            static_cast<Scene::Object3D&>(drawable->object()), velocityShader, drawable->_mesh());
         velocityDrawables.add(*velocityDrawable);
     }
+    */
+
+    // TODO instanced
+    /*
+    for(Scene::ColoredDrawableInstanced3D* drawable :
+        featuresInChildren<Scene::ColoredDrawableInstanced3D>(scene->root))
+    {
+        Scene::Object3D& object = static_cast<Scene::Object3D&>(drawable->object());
+
+        VelocityDrawableInstanced3D* velocityDrawable = new VelocityDrawableInstanced3D(
+            object, velocityShader, drawable->_mesh());
+        velocityDrawables.add(*velocityDrawable);
+
+        for(Scene::InstanceDrawable3D* instanceDrawable : featuresInChildren<Scene::InstanceDrawable3D>(object))
+        {
+            Scene::Object3D& instance = static_cast<Scene::Object3D&>(instanceDrawable->object());
+
+            VelocityInstanceDrawable3D* velocityInstanceDrawable =
+                new VelocityInstanceDrawable3D(instance, velocityDrawable->instanceData());
+            velocityDrawable->instanceDrawables().add(*velocityInstanceDrawable);
+        }
+    }
+    */
 
     scene->camera->setViewport(framebufferSize());
     updateProjectionMatrix(*scene->camera);
@@ -197,6 +221,8 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     velocityFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
     velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0);
     velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0);
+    velocityFramebuffer.mapForDraw({ { VelocityShader::VelocityOutput, GL::Framebuffer::ColorAttachment(0) } });
+    velocityFramebuffer.setLabel("Velocity framebuffer");
 
     CORRADE_INTERNAL_ASSERT(velocityFramebuffer.checkStatus(GL::FramebufferTarget::Read) ==
                             GL::Framebuffer::Status::Complete);
@@ -219,6 +245,7 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
         framebuffers[i] = GL::Framebuffer({ { 0, 0 }, quarterSize });
         framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
         framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
+        framebuffers[i].mapForDraw({ { Shaders::Generic3D::ColorOutput, GL::Framebuffer::ColorAttachment(0) } });
         framebuffers[i].setLabel(Utility::formatString("Framebuffer {} (quarter-res)", i + 1));
 
         CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) ==
@@ -237,6 +264,9 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
 
     outputFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
     outputFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), outputColorAttachment, 0);
+    // no depth buffer needed
+    outputFramebuffer.mapForDraw({ { ReconstructionShader::ColorOutput, GL::Framebuffer::ColorAttachment(0) } });
+    outputFramebuffer.setLabel("Output framebuffer");
 
     CORRADE_INTERNAL_ASSERT(outputFramebuffer.checkStatus(GL::FramebufferTarget::Read) ==
                             GL::Framebuffer::Status::Complete);
@@ -343,7 +373,7 @@ void Mosaiikki::drawEvent()
                 // use current frame's jitter
                 // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
                 // without it, you can use either jittered or unjittered, as long as they match
-                velocityShader.setProjection(matrices[currentFrame]).setOldProjection(oldMatrices[currentFrame]);
+                velocityShader.setProjectionMatrix(matrices[currentFrame]).setOldProjectionMatrix(oldMatrices[currentFrame]);
 
                 scene->camera->draw(velocityDrawables);
             }
@@ -619,11 +649,11 @@ void Mosaiikki::buildUI()
     for(size_t i = 0; i < scene->meshAnimables.size(); i++)
     {
         scene->meshAnimables[i].setState(options.scene.animatedObjects ? SceneGraph::AnimationState::Running
-                                                                      : SceneGraph::AnimationState::Paused);
+                                                                       : SceneGraph::AnimationState::Paused);
     }
 
     // TODO rotation instead of translation animation
     if(scene->cameraAnimables.size() > 0)
         scene->cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
-                                                                       : SceneGraph::AnimationState::Paused);
+                                                                        : SceneGraph::AnimationState::Paused);
 }

@@ -11,8 +11,6 @@ template<typename Transform>
 class TexturedDrawableInstanced : public ColoredDrawableInstanced<Transform>
 {
 public:
-    typedef typename ColoredDrawableInstanced<Transform>::Object3D Object3D;
-
     explicit TexturedDrawableInstanced(
         Object3D& object,
         Magnum::Shaders::Phong& shader,
@@ -31,7 +29,7 @@ public:
                        "Phong shader must support at least one texture type", );
     }
 
-    TexturedDrawableInstanced(const TexturedDrawableInstanced& other, Object3D& object) :
+    explicit TexturedDrawableInstanced(const TexturedDrawableInstanced& other, Object3D& object) :
         ColoredDrawableInstanced<Transform>(other, object), textures(other.textures), material(other.material)
     {
     }
@@ -39,7 +37,7 @@ public:
 private:
     virtual void draw(const Magnum::Matrix4& /*transformationMatrix*/, Magnum::SceneGraph::Camera3D& camera) override
     {
-        if(instanceDrawables.isEmpty())
+        if(_instanceDrawables.isEmpty())
             return;
 
         Magnum::GL::Texture2D* ambient = material.flags() & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture
@@ -57,18 +55,17 @@ private:
 
         // can't access templated base class's members without this->
 
-        this->shader
-            .bindTextures(ambient, diffuse, specular, normal)
+        this->shader.bindTextures(ambient, diffuse, specular, normal)
             .setShininess(this->shininess)
             .setProjectionMatrix(camera.projectionMatrix());
 
-        Corrade::Containers::arrayResize(this->instanceData, 0);
-        camera.draw(this->instanceDrawables);
+        Corrade::Containers::arrayResize(this->_instanceData, 0);
+        camera.draw(this->_instanceDrawables);
 
-        this->instanceBuffer.setData(this->instanceData, GL::BufferUsage::DynamicDraw);
-        this->mesh.setInstanceCount(this->instanceData.size());
+        this->instanceBuffer.setData(this->_instanceData, GL::BufferUsage::DynamicDraw);
+        this->_mesh.setInstanceCount(this->_instanceData.size());
 
-        this->shader.draw(this->mesh);
+        this->shader.draw(this->_mesh);
     }
 
     Corrade::Containers::ArrayView<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;

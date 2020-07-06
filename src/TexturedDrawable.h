@@ -28,7 +28,7 @@ public:
                        "Phong shader must support at least one texture type", );
     }
 
-    TexturedDrawable(const TexturedDrawable& other, Object3D& object) :
+    explicit TexturedDrawable(const TexturedDrawable& other, Object3D& object) :
         ColoredDrawable<Transform>(other, object), textures(other.textures), material(other.material)
     {
     }

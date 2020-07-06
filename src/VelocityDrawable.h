@@ -14,35 +14,35 @@ public:
     explicit VelocityDrawable(Object3D& object, VelocityShader& shader, Magnum::GL::Mesh& mesh) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(shader),
-        mesh(mesh),
+        _mesh(mesh),
         oldTransformation(Magnum::Math::IdentityInit)
     {
     }
 
-    VelocityDrawable(const VelocityDrawable& other, Object3D& object) :
+    explicit VelocityDrawable(const VelocityDrawable& other, Object3D& object) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(other.shader),
-        mesh(other.mesh),
+        _mesh(other._mesh),
         oldTransformation(other.oldTransformation)
     {
     }
 
-    Magnum::GL::Mesh& getMesh() const
+    Magnum::GL::Mesh& mesh() const
     {
-        return mesh;
+        return _mesh;
     }
 
 private:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& /*camera*/) override
     {
-        shader.setOldTransformation(oldTransformation);
-        shader.setTransformation(transformationMatrix);
+        shader.setOldTransformationMatrix(oldTransformation);
+        shader.setTransformationMatrix(transformationMatrix);
         oldTransformation = transformationMatrix;
 
-        shader.draw(mesh);
+        shader.draw(_mesh);
     }
 
     VelocityShader& shader;
-    Magnum::GL::Mesh& mesh;
+    Magnum::GL::Mesh& _mesh;
     Magnum::Matrix4 oldTransformation;
 };

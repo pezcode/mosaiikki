@@ -7,13 +7,13 @@
 class DepthBlitShader : public Magnum::GL::AbstractShaderProgram
 {
 public:
-    DepthBlitShader(Magnum::NoCreateT);
-    DepthBlitShader();
+    explicit DepthBlitShader(Magnum::NoCreateT);
+    explicit DepthBlitShader();
 
     DepthBlitShader& bindDepth(Magnum::GL::Texture2D& attachment);
 
-    // normally you call mesh.draw(shader)
-    // but we supply our own mesh for a fullscreen pass
+    // normally you call _mesh.draw(shader)
+    // but we supply our own _mesh for a fullscreen pass
     void draw();
 
 private:

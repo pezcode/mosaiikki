@@ -2,6 +2,7 @@
 
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/Shaders/Generic.h>
 #include <Magnum/GL/Buffer.h>
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/GrowableArray.h>
@@ -15,17 +16,24 @@ public:
     struct InstanceData
     {
         Magnum::Matrix4 transformationMatrix;
+        //Magnum::Matrix4 oldTransformationMatrix;
         Magnum::Matrix3 normalMatrix;
         Magnum::Color4 color;
     };
 
-    explicit InstanceDrawable(Object3D& object, Corrade::Containers::Array<InstanceData>& instanceData) :
-        Magnum::SceneGraph::Drawable3D(object), instanceData(instanceData)
+    typedef Corrade::Containers::Array<InstanceData> InstanceArray;
+
+    explicit InstanceDrawable(Object3D& object, InstanceArray& instanceData) :
+        Magnum::SceneGraph::Drawable3D(object), instanceData(instanceData), color(1.0f, 1.0f, 1.0f) //,
+    //oldTransformationMatrix(Magnum::Math::IdentityInit)
     {
     }
 
-    InstanceDrawable(const InstanceDrawable& other, Object3D& object) :
-        Magnum::SceneGraph::Drawable3D(object), color(other.color), instanceData(other.instanceData)
+    explicit InstanceDrawable(const InstanceDrawable& other, Object3D& object) :
+        Magnum::SceneGraph::Drawable3D(object),
+        color(other.color),
+        //oldTransformationMatrix(other.oldTransformationMatrix),
+        instanceData(other.instanceData)
     {
     }
 
@@ -40,19 +48,26 @@ public:
         mesh.addVertexBufferInstanced(instanceBuffer,
                                       1, // divisor
                                       0, // offset
-                                      Magnum::Shaders::Phong::TransformationMatrix(),
-                                      Magnum::Shaders::Phong::NormalMatrix(),
-                                      Magnum::Shaders::Phong::Color4());
+                                      Magnum::Shaders::Generic3D::TransformationMatrix(),
+                                      // TODO find attribute position for old transformation
+                                      // no contiguous space for one matrix
+                                      // split it? only 4, 6, 7, 15 are free
+                                      Magnum::Shaders::Generic3D::NormalMatrix(),
+                                      Magnum::Shaders::Generic3D::Color4());
         return std::move(instanceBuffer);
     }
 
 protected:
     virtual void draw(const Magnum::Matrix4& transformationMatrix, Magnum::SceneGraph::Camera3D& /* camera */) override
     {
-        Corrade::Containers::arrayAppend(instanceData,
-                                         { transformationMatrix, transformationMatrix.normalMatrix(), color });
+        Corrade::Containers::arrayAppend(
+            instanceData,
+            { transformationMatrix, /*oldTransformationMatrix,*/ transformationMatrix.normalMatrix(), color });
+        //oldTransformationMatrix = transformationMatrix;
     }
 
     Magnum::Color4 color;
-    Corrade::Containers::Array<InstanceData>& instanceData;
+    //Magnum::Matrix4 oldTransformationMatrix;
+
+    InstanceArray& instanceData;
 };

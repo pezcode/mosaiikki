@@ -8,6 +8,7 @@ set(SOURCES
 	Scene.cpp
 	VelocityDrawable.h
 	VelocityDrawableInstanced.h
+    VelocityInstanceDrawable.h
 	ColoredDrawable.h
 	ColoredDrawableInstanced.h
 	TexturedDrawable.h

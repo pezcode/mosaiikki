@@ -92,9 +92,9 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
                     instance.translate(toLocal * translation);
 
                     InstanceDrawable3D* instanceDrawable =
-                        new InstanceDrawable3D(instance, drawable->getInstanceData());
+                        new InstanceDrawable3D(instance, drawable->instanceData());
                     instanceDrawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
-                    drawable->getInstanceDrawables().add(*instanceDrawable);
+                    drawable->instanceDrawables().add(*instanceDrawable);
 
                     Vector3 localX = toLocal * Vector3::xAxis();
                     Vector3 localY = toLocal * Vector3::yAxis();
@@ -157,7 +157,12 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
                 sceneBounds.min() = Math::min(sceneBounds.min(), meshBounds.min());
                 sceneBounds.max() = Math::max(sceneBounds.max(), meshBounds.max());
             }
-            meshes[i] = MeshTools::compile(*data);
+
+            GL::Buffer indices, vertices;
+            indices.setData(data->indexData());
+            vertices.setData(data->vertexData());
+
+            meshes[i] = MeshTools::compile(*data, indices, vertices);
             instanceBuffers[i] = InstanceDrawable3D::addInstancedBuffer(*meshes[i]);
         }
     }
@@ -265,6 +270,10 @@ void Scene::addObject(Trade::AbstractImporter& importer,
 
             if(!textured)
             {
+                // TODO
+                // can we unify textured and colored drawables somehow?
+                // maybe with a white default diffuse texture
+                // or just don't load color-only meshes
                 ColoredDrawableInstanced3D* drawable =
                     new ColoredDrawableInstanced3D(object,
                                                    coloredMaterialShader,
@@ -273,7 +282,7 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                 drawables.add(*drawable);
 
                 // by default, there are no instances
-                // add a InstanceDrawable3D to drawable->getInstanceDrawables() for each instance
+                // add a InstanceDrawable3D to drawable->instanceDrawables() for each instance
             }
         }
 

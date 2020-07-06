@@ -50,7 +50,7 @@ layout(std140) uniform OptionsBlock
 #define DEBUG_OPTION_SET(OPT) (false)
 #endif
 
-layout(location = 0) out vec4 fragColor;
+layout(location = COLOR_OUTPUT_ATTRIBUTE_LOCATION) out vec4 fragColor;
 
 /*
 each quarter-res pixel corresponds to 4 pixels (quadrants) in the full-res output

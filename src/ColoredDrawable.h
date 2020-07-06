@@ -13,22 +13,22 @@ public:
     typedef Magnum::SceneGraph::Object<Transform> Object3D;
 
     explicit ColoredDrawable(Object3D& object, Magnum::Shaders::Phong& shader, Magnum::GL::Mesh& mesh) :
-        Magnum::SceneGraph::Drawable3D(object), shader(shader), mesh(mesh), color(1.0f, 1.0f, 1.0f), shininess(80.0f)
+        Magnum::SceneGraph::Drawable3D(object), shader(shader), _mesh(mesh), color(1.0f, 1.0f, 1.0f), shininess(80.0f)
     {
     }
 
-    ColoredDrawable(const ColoredDrawable& other, Object3D& object) :
+    explicit ColoredDrawable(const ColoredDrawable& other, Object3D& object) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(other.shader),
-        mesh(other.mesh),
+        _mesh(other._mesh),
         color(other.color),
         shininess(other.shininess)
     {
     }
 
-    Magnum::GL::Mesh& getMesh() const
+    Magnum::GL::Mesh& mesh() const
     {
-        return mesh;
+        return _mesh;
     }
 
     void setColor(const Magnum::Color4& newColor)
@@ -50,11 +50,11 @@ protected:
             .setNormalMatrix(transformationMatrix.normalMatrix())
             .setProjectionMatrix(camera.projectionMatrix());
 
-        shader.draw(mesh);
+        shader.draw(_mesh);
     }
 
     Magnum::Shaders::Phong& shader;
-    Magnum::GL::Mesh& mesh;
+    Magnum::GL::Mesh& _mesh;
     Magnum::Color4 color;
     float shininess;
 };

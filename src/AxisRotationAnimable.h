@@ -15,7 +15,9 @@ class AxisRotationAnimable : public Magnum::SceneGraph::Animable3D
 public:
     typedef Magnum::SceneGraph::Object<Transform> Object3D;
 
-    AxisRotationAnimable(Object3D& object, const Magnum::Vector3& axis, Magnum::Rad velocity /* radians per second */) :
+    explicit AxisRotationAnimable(Object3D& object,
+                                  const Magnum::Vector3& axis,
+                                  Magnum::Rad velocity /* radians per second */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
@@ -25,7 +27,7 @@ public:
         setRepeated(true);
     }
 
-    AxisRotationAnimable(const AxisRotationAnimable& other, Object3D& object) :
+    explicit AxisRotationAnimable(const AxisRotationAnimable& other, Object3D& object) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(other.axis),

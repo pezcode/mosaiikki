@@ -14,10 +14,10 @@ class AxisTranslationAnimable : public Magnum::SceneGraph::Animable3D
 public:
     typedef Magnum::SceneGraph::Object<Transform> Object3D;
 
-    AxisTranslationAnimable(Object3D& object,
-                            const Magnum::Vector3& axis,
-                            float range /* units */,
-                            float velocity /* units per second */) :
+    explicit AxisTranslationAnimable(Object3D& object,
+                                     const Magnum::Vector3& axis,
+                                     float range /* units */,
+                                     float velocity /* units per second */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
@@ -29,7 +29,7 @@ public:
         setRepeated(true);
     }
 
-    AxisTranslationAnimable(const AxisTranslationAnimable& other, Object3D& object) :
+    explicit AxisTranslationAnimable(const AxisTranslationAnimable& other, Object3D& object) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(other.axis),

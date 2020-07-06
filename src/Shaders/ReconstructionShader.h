@@ -4,14 +4,21 @@
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
+#include <Magnum/Shaders/Generic.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include "Options.h"
 
 class ReconstructionShader : public Magnum::GL::AbstractShaderProgram
 {
 public:
-    ReconstructionShader(Magnum::NoCreateT);
-    ReconstructionShader();
+
+    enum : Magnum::UnsignedInt
+    {
+        ColorOutput = Magnum::Shaders::Generic3D::ColorOutput
+    };
+
+    explicit ReconstructionShader(Magnum::NoCreateT);
+    explicit ReconstructionShader();
 
     ReconstructionShader& bindColor(Magnum::GL::MultisampleTexture2DArray& attachment);
     ReconstructionShader& bindDepth(Magnum::GL::MultisampleTexture2DArray& attachment);
@@ -21,8 +28,8 @@ public:
     ReconstructionShader& setCameraInfo(Magnum::SceneGraph::Camera3D& camera, float nearPlane, float farPlane);
     ReconstructionShader& setOptions(const Options::Reconstruction& options);
 
-    // normally you call mesh.draw(shader)
-    // but we supply our own mesh for a fullscreen pass
+    // normally you call _mesh.draw(shader)
+    // but we supply our own _mesh for a fullscreen pass
     void draw();
 
 private:
@@ -33,11 +40,11 @@ private:
 
     Magnum::GL::Mesh triangle;
 
-    enum TextureUnits : Magnum::Int
+    enum : Magnum::Int
     {
-        Color = 0,
-        Depth,
-        Velocity
+        ColorTextureUnit = 0,
+        DepthTextureUnit = 1,
+        VelocityTextureUnit = 2
     };
 
     Magnum::Int optionsBlock;

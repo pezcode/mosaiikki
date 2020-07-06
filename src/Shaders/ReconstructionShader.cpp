@@ -6,6 +6,7 @@
 #include <Magnum/MeshTools/FullScreenTriangle.h>
 #include <Corrade/Containers/Reference.h>
 #include <Corrade/Utility/Resource.h>
+#include <Corrade/Utility/FormatStl.h>
 
 using namespace Magnum;
 
@@ -36,6 +37,7 @@ ReconstructionShader::ReconstructionShader() :
 #ifdef CORRADE_IS_DEBUG_BUILD
     frag.addSource("#define DEBUG");
 #endif
+    frag.addSource(Utility::formatString("#define COLOR_OUTPUT_ATTRIBUTE_LOCATION {}\n", ColorOutput));
     frag.addSource(rs.get("ReconstructionShader.frag"));
 
     // possibly parallel compilation
@@ -44,9 +46,9 @@ ReconstructionShader::ReconstructionShader() :
     attachShaders({ vert, frag });
     link();
 
-    setUniform(uniformLocation("color"), TextureUnits::Color);
-    setUniform(uniformLocation("depth"), TextureUnits::Depth);
-    setUniform(uniformLocation("velocity"), TextureUnits::Velocity);
+    setUniform(uniformLocation("color"), ColorTextureUnit);
+    setUniform(uniformLocation("depth"), DepthTextureUnit);
+    setUniform(uniformLocation("velocity"), VelocityTextureUnit);
 
     optionsBlock = uniformBlockIndex("OptionsBlock");
 
@@ -56,19 +58,19 @@ ReconstructionShader::ReconstructionShader() :
 
 ReconstructionShader& ReconstructionShader::bindColor(GL::MultisampleTexture2DArray& attachment)
 {
-    attachment.bind(TextureUnits::Color);
+    attachment.bind(ColorTextureUnit);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::bindDepth(GL::MultisampleTexture2DArray& attachment)
 {
-    attachment.bind(TextureUnits::Depth);
+    attachment.bind(DepthTextureUnit);
     return *this;
 }
 
 ReconstructionShader& ReconstructionShader::bindVelocity(GL::Texture2D& attachment)
 {
-    attachment.bind(TextureUnits::Velocity);
+    attachment.bind(VelocityTextureUnit);
     return *this;
 }
 
