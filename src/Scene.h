@@ -2,12 +2,12 @@
 
 #include "Feature.h"
 
-#include "ColoredDrawable.h"
-#include "ColoredDrawable.h"
-#include "TexturedDrawable.h"
-#include "TexturedDrawable.h"
-#include "VelocityDrawable.h"
-#include "VelocityDrawable.h"
+#include "Drawables/ColoredDrawable.h"
+#include "Drawables/ColoredDrawable.h"
+#include "Drawables/TexturedDrawable.h"
+#include "Drawables/TexturedDrawable.h"
+#include "Drawables/VelocityDrawable.h"
+#include "Drawables/VelocityDrawable.h"
 #include "AxisTranslationAnimable.h"
 #include "AxisRotationAnimable.h"
 #include "Shaders/VelocityShader.h"

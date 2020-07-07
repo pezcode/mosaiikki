@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <Magnum/SceneGraph/Drawable.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/Math/Matrix4.h>

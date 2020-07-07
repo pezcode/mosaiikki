@@ -1,6 +1,6 @@
 #pragma once
 
-#include "InstanceDrawable.h"
+#include "Drawables/InstanceDrawable.h"
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Drawable.h>
 #include <Magnum/SceneGraph/Camera.h>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VelocityInstanceDrawable.h"
+#include "Drawables/VelocityInstanceDrawable.h"
 #include "Shaders/VelocityShader.h"
 #include <Magnum/SceneGraph/Drawable.h>
 #include <Magnum/SceneGraph/Camera.h>

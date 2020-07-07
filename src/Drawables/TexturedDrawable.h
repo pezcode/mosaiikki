@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ColoredDrawable.h"
+#include "Drawables/ColoredDrawable.h"
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/GL/Texture.h>
 #include <Corrade/Containers/ArrayView.h>

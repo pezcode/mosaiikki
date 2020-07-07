@@ -6,11 +6,11 @@ set(SOURCES
 	ImGuiApplication.cpp
 	Scene.h
 	Scene.cpp
-	VelocityDrawable.h
-    VelocityInstanceDrawable.h
-	ColoredDrawable.h
-	TexturedDrawable.h
-	InstanceDrawable.h
+	Drawables/VelocityDrawable.h
+	Drawables/VelocityInstanceDrawable.h
+	Drawables/ColoredDrawable.h
+	Drawables/TexturedDrawable.h
+	Drawables/InstanceDrawable.h
 	AxisTranslationAnimable.h
 	AxisRotationAnimable.h
 	Feature.h
