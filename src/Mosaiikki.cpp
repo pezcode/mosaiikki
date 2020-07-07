@@ -92,16 +92,6 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
 #endif
 
-    // TODO remove
-    // ASAN test
-    /*
-    char* test = new char[2];
-    test[1] = 0;
-    test[2] = 0;
-
-    Debug() << test;
-    */
-
     // Command line
 
     Utility::Arguments parser;
@@ -145,7 +135,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
         scene.emplace();
     }
 
-    for(Containers::Optional<GL::Texture2D>& texture : scene->textures)
+    for(Containers::Pointer<GL::Texture2D>& texture : scene->textures)
     {
         if(texture)
         {

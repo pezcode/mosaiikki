@@ -46,29 +46,31 @@ public:
         shininess = newShininess;
     }
 
-    Magnum::SceneGraph::DrawableGroup3D& instanceDrawables()
+    InstanceDrawable<Transform>& addInstance(Object3D& object)
     {
-        return _instanceDrawables;
+        InstanceDrawable<Transform>* instance = new InstanceDrawable<Transform>(object, instanceData);
+        instanceDrawables.add(*instance);
+        return *instance;
     }
 
-    typename InstanceDrawable<Transform>::InstanceArray& instanceData()
+    Magnum::SceneGraph::DrawableGroup3D& instances()
     {
-        return _instanceData;
+        return instanceDrawables;
     }
 
 protected:
     virtual void draw(const Magnum::Matrix4& /* transformationMatrix */, Magnum::SceneGraph::Camera3D& camera) override
     {
-        if(_instanceDrawables.isEmpty())
+        if(instanceDrawables.isEmpty())
             return;
 
         shader.setShininess(shininess).setProjectionMatrix(camera.projectionMatrix());
 
-        Corrade::Containers::arrayResize(_instanceData, 0);
-        camera.draw(_instanceDrawables);
+        Corrade::Containers::arrayResize(instanceData, 0);
+        camera.draw(instanceDrawables);
 
-        instanceBuffer.setData(_instanceData, Magnum::GL::BufferUsage::DynamicDraw);
-        _mesh.setInstanceCount(_instanceData.size());
+        instanceBuffer.setData(instanceData, Magnum::GL::BufferUsage::DynamicDraw);
+        _mesh.setInstanceCount(instanceData.size());
 
         shader.draw(_mesh);
     }
@@ -77,9 +79,9 @@ protected:
     Magnum::UnsignedInt _meshId;
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;
-    Magnum::SceneGraph::DrawableGroup3D _instanceDrawables;
+    Magnum::SceneGraph::DrawableGroup3D instanceDrawables;
 
     float shininess;
 
-    typename InstanceDrawable<Transform>::InstanceArray _instanceData;
+    typename InstanceDrawable<Transform>::InstanceArray instanceData;
 };

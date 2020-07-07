@@ -35,27 +35,29 @@ public:
         return _mesh;
     }
 
-    Magnum::SceneGraph::DrawableGroup3D& instanceDrawables()
+    VelocityInstanceDrawable<Transform>& addInstance(Object3D& object)
     {
-        return _instanceDrawables;
+        VelocityInstanceDrawable<Transform>* instance = new VelocityInstanceDrawable<Transform>(object, instanceData);
+        instanceDrawables.add(*instance);
+        return *instance;
     }
 
-    typename VelocityInstanceDrawable<Transform>::InstanceArray& instanceData()
+    Magnum::SceneGraph::DrawableGroup3D& instances()
     {
-        return _instanceData;
+        return instanceDrawables;
     }
 
 private:
     virtual void draw(const Magnum::Matrix4& /* transformationMatrix */, Magnum::SceneGraph::Camera3D& camera) override
     {
-        if(_instanceDrawables.isEmpty())
+        if(instanceDrawables.isEmpty())
             return;
 
-        Corrade::Containers::arrayResize(_instanceData, 0);
-        camera.draw(_instanceDrawables);
+        Corrade::Containers::arrayResize(instanceData, 0);
+        camera.draw(instanceDrawables);
 
-        instanceBuffer.setData(_instanceData, Magnum::GL::BufferUsage::DynamicDraw);
-        _mesh.setInstanceCount(_instanceData.size());
+        instanceBuffer.setData(instanceData, Magnum::GL::BufferUsage::DynamicDraw);
+        _mesh.setInstanceCount(instanceData.size());
 
         shader.draw(_mesh);
     }
@@ -64,7 +66,7 @@ private:
     Magnum::UnsignedInt _meshId;
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;
-    Magnum::SceneGraph::DrawableGroup3D _instanceDrawables;
+    Magnum::SceneGraph::DrawableGroup3D instanceDrawables;
 
-    typename VelocityInstanceDrawable<Transform>::InstanceArray _instanceData;
+    typename VelocityInstanceDrawable<Transform>::InstanceArray instanceData;
 };

@@ -61,7 +61,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     // Objects
 
     std::string mesh = "resources/models/Suzanne.glb";
-    //mesh = "resources/models/Avocado/Avocado.gltf";
+    mesh = "resources/models/Avocado/Avocado.gltf";
 
     Object3D& object = root.addChild<Object3D>();
     object.translate({ 0.0f, 0.0f, -5.0f });
@@ -100,9 +100,8 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
                     Vector3 translation = (Vector3(i, j, -float(k)) - center) * 4.0f;
                     instance.translate(toLocal * translation);
 
-                    InstanceDrawable3D* instanceDrawable = new InstanceDrawable3D(instance, drawable->instanceData());
-                    instanceDrawable->setColor(Color4(i, j, k) * 1.0f / objectGridSize);
-                    drawable->instanceDrawables().add(*instanceDrawable);
+                    InstanceDrawable3D& instanceDrawable = drawable->addInstance(instance);
+                    instanceDrawable.setColor(Color4(i, j, k) * 1.0f / objectGridSize);
 
                     Vector3 localX = toLocal * Vector3::xAxis();
                     Vector3 localY = toLocal * Vector3::yAxis();
@@ -116,9 +115,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
                     translationAnimable->setState(SceneGraph::AnimationState::Running);
                     rotationAnimable->setState(SceneGraph::AnimationState::Running);
 
-                    VelocityInstanceDrawable3D* velocityInstanceDrawable =
-                        new VelocityInstanceDrawable3D(instance, velocityDrawable->instanceData());
-                    velocityDrawable->instanceDrawables().add(*velocityInstanceDrawable);
+                    velocityDrawable->addInstance(instance);
                 }
             }
         }
@@ -178,11 +175,11 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
             indices.setData(data->indexData());
             vertices.setData(data->vertexData());
 
-            meshes[i] = MeshTools::compile(*data, indices, vertices);
-            instanceBuffers[i] = InstanceDrawable3D::addInstancedBuffer(*meshes[i]);
+            meshes[i].emplace(MeshTools::compile(*data, indices, vertices));
+            instanceBuffers[i].emplace(InstanceDrawable3D::addInstancedBuffer(*meshes[i]));
 
-            velocityMeshes[i] = MeshTools::compile(*data, indices, vertices);
-            velocityInstanceBuffers[i] = VelocityInstanceDrawable3D::addInstancedBuffer(*velocityMeshes[i]);
+            velocityMeshes[i].emplace(MeshTools::compile(*data, indices, vertices));
+            velocityInstanceBuffers[i].emplace(VelocityInstanceDrawable3D::addInstancedBuffer(*velocityMeshes[i]));
         }
     }
 
@@ -199,7 +196,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
         Containers::Pointer<Trade::AbstractMaterialData> data = importer->material(i);
         if(data && data->type() == Trade::MaterialType::Phong)
         {
-            materials[i] = std::move(static_cast<Trade::PhongMaterialData&>(*data));
+            materials[i].emplace(std::move(static_cast<Trade::PhongMaterialData&>(*data)));
         }
     }
 
@@ -235,7 +232,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
                     .setStorage(Math::log2(imageData->size().max()) + 1, format, imageData->size())
                     .setSubImage(0, {}, *imageData)
                     .generateMipmap();
-                textures[i] = std::move(texture);
+                textures[i].emplace(std::move(texture));
             }
         }
     }
@@ -285,8 +282,6 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                                                meshOffset + objectData->instance(),
                                                *meshes[meshOffset + objectData->instance()],
                                                *instanceBuffers[meshOffset + objectData->instance()],
-                                               // TODO this will break once we load a second mesh
-                                               // array view becomes invalid after array resize
                                                textures.suffix(textureOffset),
                                                material);
                     drawables.add(*drawable);

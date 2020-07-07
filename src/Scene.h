@@ -22,9 +22,9 @@
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Texture.h>
+#include <Corrade/Containers/Optional.h>
 #include <Corrade/Containers/Pointer.h>
 #include <Corrade/Containers/Array.h>
-#include <Corrade/Containers/Optional.h>
 
 class Scene
 {
@@ -64,15 +64,15 @@ public:
                    Magnum::UnsignedInt textureOffset = 0);
 
     // normal meshes with default instance data (transformation, normal matrix, color)
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> meshes;
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Buffer>> instanceBuffers;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Mesh>> meshes;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Buffer>> instanceBuffers;
 
     // meshes with instance data for the velocity shader (transformation, old transformation)
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Mesh>> velocityMeshes;
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Buffer>> velocityInstanceBuffers;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Mesh>> velocityMeshes;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Buffer>> velocityInstanceBuffers;
 
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::Trade::PhongMaterialData>> materials;
-    Corrade::Containers::Array<Corrade::Containers::Optional<Magnum::GL::Texture2D>> textures;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::Trade::PhongMaterialData>> materials;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Texture2D>> textures;
 
     Scene3D scene;
     Object3D root;

@@ -34,7 +34,7 @@ public:
     typedef Corrade::Containers::EnumSet<Flag> Flags;
 
     explicit VelocityShader(Magnum::NoCreateT);
-    explicit VelocityShader(const Flags flags);
+    explicit VelocityShader(const Flags flags = {});
 
     Flags flags() const
     {
