@@ -54,16 +54,17 @@ find_package(Magnum REQUIRED
 	Trade
 	MeshTools
 	AnySceneImporter
-    AnyImageImporter
+	AnyImageImporter
 	DebugTools
 )
 find_package(MagnumPlugins REQUIRED TinyGltfImporter StbImageImporter)
 find_package(MagnumIntegration REQUIRED ImGui)
 
-# embed shaders
-corrade_add_resource(SHADER_RESOURCES Shaders/resources.conf)
+# embed resources
+corrade_add_resource(RESOURCES "${PROJECT_SOURCE_DIR}/resources/resources.conf")
+corrade_add_resource(SHADER_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/resources.conf")
 
-add_executable(${CMAKE_PROJECT_NAME} WIN32 ${SOURCES} ${SHADERS} ${SHADER_RESOURCES})
+add_executable(${CMAKE_PROJECT_NAME} WIN32 ${SOURCES} ${SHADERS} ${RESOURCES} ${SHADER_RESOURCES})
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
@@ -77,10 +78,10 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
 	Magnum::Trade
 	Magnum::MeshTools
 	Magnum::AnySceneImporter
-    Magnum::AnyImageImporter
+	Magnum::AnyImageImporter
 	Magnum::DebugTools
 	MagnumPlugins::TinyGltfImporter
-    MagnumPlugins::StbImageImporter
+	MagnumPlugins::StbImageImporter
 	MagnumIntegration::ImGui
 )
 

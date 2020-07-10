@@ -23,6 +23,7 @@ protected:
     // convenience function that sets the GUI font
     // removes all other fonts and builds the font atlas
     void setFont(const char* fontFile, float pixels);
+    void setFont(const void* fontData, size_t dataSize, float pixels);
 
     // override and build your UI with ImGui:: calls
     // called each frame

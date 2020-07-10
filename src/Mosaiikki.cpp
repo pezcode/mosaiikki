@@ -37,6 +37,15 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     outputColorAttachment(NoCreate),
     reconstructionShader(NoCreate)
 {
+    // Redirect log to file
+
+    if(logFile.good())
+    {
+        _debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
+        _warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
+        _error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
+    }
+
     // Configuration and GL context
 
     Configuration conf;
@@ -46,7 +55,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     GLConfiguration glConf;
     // for anything >= 3.20 Magnum creates a core context
-    // if we don't set a version, we get the highest version possible, but a compatibility context :(
+    // if we don't set a version on Nvidia drivers, we get the highest version possible, but a compatibility context :(
     // forward-compatible removes anything deprecated
     glConf.setVersion(GL::Version::GL320);
     glConf.addFlags(GLConfiguration::Flag::ForwardCompatible);
@@ -59,30 +68,35 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     setSwapInterval(0); // disable v-sync
 #endif
 
-    CORRADE_ASSERT(GL::Context::current().isCoreProfile(), "OpenGL core context expected", );
-    MAGNUM_ASSERT_GL_VERSION_SUPPORTED(GL::Version::GL320);
-
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::explicit_attrib_location); // core in 3.3
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::sample_shading);           // core in 4.0
     MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::texture_multisample);      // core in 3.2
+    MAGNUM_ASSERT_GL_EXTENSION_SUPPORTED(GL::Extensions::ARB::uniform_buffer_object);    // core in 3.1
 
     GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
 
     // Debug output
-
-    if(logFile.good())
-    {
-        _debug = Corrade::Containers::pointer<Utility::Debug>(&logFile, Utility::Debug::Flag::NoSpace);
-        _warning = Corrade::Containers::pointer<Utility::Warning>(&logFile, Utility::Debug::Flag::NoSpace);
-        _error = Corrade::Containers::pointer<Utility::Error>(&logFile, Utility::Debug::Flag::NoSpace);
-    }
 
     profiler.setup(DebugTools::GLFrameProfiler::Value::FrameTime | DebugTools::GLFrameProfiler::Value::GpuDuration, 60);
 
 #ifdef CORRADE_IS_DEBUG_BUILD
     GL::Renderer::enable(GL::Renderer::Feature::DebugOutput);
     // redirect debug messages to Corrade Debug output
-    GL::DebugOutput::setDefaultCallback();
+    // the callback can be called on a different thread which ignores thread-local Debug overrides
+    // so we pass the log file ostream directly to the default callback implementation
+    // this is a bit of a hack, since the default implementation is only exposed for testing
+    //GL::DebugOutput::setDefaultCallback();
+    GL::DebugOutput::setCallback(
+        [](GL::DebugOutput::Source source,
+           GL::DebugOutput::Type type,
+           UnsignedInt id,
+           GL::DebugOutput::Severity severity,
+           const std::string& string,
+           const void* ostream) {
+            GL::Implementation::defaultDebugCallback(source, type, id, severity, string, (std::ostream*)(ostream));
+        },
+        &logFile);
+
     // disable unimportant output
     // markers and groups are only used for RenderDoc
     GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Application, GL::DebugOutput::Type::Marker, false);
@@ -92,21 +106,13 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
 #endif
 
-    // Command line
-
-    Utility::Arguments parser;
-    parser.addOption("font", "resources/fonts/Roboto-Regular.ttf")
-        .setHelp("font", "GUI font to load")
-        .addSkippedPrefix("magnum", "engine-specific options") // ignore --magnum- options
-        .setGlobalHelp("Checkered rendering experiment.");
-    parser.parse(arguments.argc, arguments.argv);
-
     // UI
 
     ImGui::StyleColorsDark();
 
-    std::string fontFile = parser.value<std::string>("font");
-    setFont(fontFile.c_str(), 15.0f);
+    Utility::Resource rs("resources");
+    Containers::ArrayView<const char> font = rs.getRaw("fonts/Roboto-Regular.ttf");
+    setFont(font.data(), font.size(), 15.0f);
 
     // Framebuffers
 
@@ -119,10 +125,11 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     depthBlitShader = DepthBlitShader();
     depthBlitShader.setLabel("Depth blit shader");
 
-    ReconstructionShader::Flags reconstructionFlags;
+    ReconstructionShader::Flags reconstructionFlags = ReconstructionShader::Flags()
 #ifdef CORRADE_IS_DEBUG_BUILD
-    reconstructionFlags |= ReconstructionShader::Flag::Debug;
+                                                      | ReconstructionShader::Flag::Debug
 #endif
+        ;
     reconstructionShader = ReconstructionShader(reconstructionFlags);
     reconstructionShader.setLabel("Checkerboard resolve shader");
 
@@ -613,6 +620,7 @@ void Mosaiikki::buildUI()
     }
 
     // TODO rotation (e.g. panning) instead of translation animation
+    // requires a rotation angle limit in AxisRotationAnimable
     if(scene->cameraAnimables.size() > 0)
         scene->cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
                                                                         : SceneGraph::AnimationState::Paused);

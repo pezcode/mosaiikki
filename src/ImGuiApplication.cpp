@@ -151,3 +151,16 @@ void ImGuiApplication::setFont(const char* fontFile, float pixels)
     // update font atlas
     imgui.relayout(uiSize(), windowSize(), framebufferSize());
 }
+
+void ImGuiApplication::setFont(const void* fontData, size_t dataSize, float pixels)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    io.Fonts->Clear();
+    ImFontConfig fontConfig;
+    fontConfig.GlyphRanges = io.Fonts->GetGlyphRangesDefault();
+    fontConfig.FontDataOwnedByAtlas = false;
+    io.Fonts->AddFontFromMemoryTTF(
+        const_cast<void*>(fontData), int(dataSize), pixels * framebufferSize().x() / uiSize().x(), &fontConfig);
+    // update font atlas
+    imgui.relayout(uiSize(), windowSize(), framebufferSize());
+}

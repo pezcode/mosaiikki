@@ -26,7 +26,7 @@ void main()
 		#endif
 		position;
 
-	oldClipPos = oldProjectionMatrix * transformationMatrix *
+	oldClipPos = oldProjectionMatrix * oldTransformationMatrix *
 		#ifdef INSTANCED_TRANSFORMATION
 		instancedOldTransformationMatrix *
 		#endif
