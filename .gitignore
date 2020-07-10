@@ -1,6 +1,9 @@
 /build*/
 /images/
 
+# Large files
+/resources/models/
+
 # Graphic debuggers
 /*.cap
 /Nsight
