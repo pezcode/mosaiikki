@@ -66,7 +66,7 @@ private:
     Magnum::UnsignedInt _meshId;
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;
-    Magnum::SceneGraph::DrawableGroup3D instanceDrawables;
 
+    Magnum::SceneGraph::DrawableGroup3D instanceDrawables;
     typename VelocityInstanceDrawable<Transform>::InstanceArray instanceData;
 };

@@ -2,12 +2,12 @@
 
 #include "Feature.h"
 
-#include "Drawables/ColoredDrawable.h"
 #include "Drawables/TexturedDrawable.h"
 #include "Drawables/VelocityDrawable.h"
 #include "Shaders/VelocityShader.h"
 #include "Animables/AxisTranslationAnimable.h"
 #include "Animables/AxisRotationAnimable.h"
+#include "DefaultMaterial.h"
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
@@ -30,7 +30,6 @@ public:
     typedef Magnum::SceneGraph::Object<Transform3D> Object3D;
     typedef Magnum::SceneGraph::Scene<Transform3D> Scene3D;
 
-    typedef ColoredDrawable<Transform3D> ColoredDrawable3D;
     typedef TexturedDrawable<Transform3D> TexturedDrawable3D;
     typedef InstanceDrawable<Transform3D> InstanceDrawable3D;
 
@@ -70,6 +69,8 @@ public:
 
     Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::Trade::PhongMaterialData>> materials;
     Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Texture2D>> textures;
+
+    DefaultMaterial defaultMaterial;
 
     Scene3D scene;
     Object3D root;

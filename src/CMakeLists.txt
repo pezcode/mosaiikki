@@ -8,11 +8,11 @@ set(SOURCES
 	Scene.cpp
 	Drawables/VelocityDrawable.h
 	Drawables/VelocityInstanceDrawable.h
-	Drawables/ColoredDrawable.h
 	Drawables/TexturedDrawable.h
 	Drawables/InstanceDrawable.h
 	Animables/AxisTranslationAnimable.h
 	Animables/AxisRotationAnimable.h
+    DefaultMaterial.h
 	Feature.h
 	Options.h
 	MagnumShadersSampleInterpolationOverride.h

@@ -25,6 +25,12 @@ Scene::Scene(NoCreateT) :
 
 Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate), velocityShader(NoCreate)
 {
+    // Default material
+
+    Containers::Array<GL::Texture2D> defaultTextures = defaultMaterial.createTextures({ 4, 4 });
+    for(GL::Texture2D& texture : defaultTextures)
+        Containers::arrayAppend(textures, Containers::pointer<GL::Texture2D>(std::move(texture)));
+
     // Scene
 
     lightPositions = Containers::array<Vector3>({ { -3.0f, 10.0f, 10.0f } });
@@ -62,7 +68,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     // Objects
 
-    std::string mesh = "resources/models/Suzanne.glb";
+    std::string mesh = "resources/models/Suzanne.gltf";
     mesh = "resources/models/Avocado/Avocado.gltf";
 
     Object3D& object = root.addChild<Object3D>();
@@ -80,7 +86,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     // animated objects + associated velocity drawables
 
-    for(ColoredDrawable3D* drawable : featuresInChildren<ColoredDrawable3D>(object))
+    for(TexturedDrawable3D* drawable : featuresInChildren<TexturedDrawable3D>(object))
     {
         Object3D& drawableObject = static_cast<Object3D&>(drawable->object());
 
@@ -164,6 +170,8 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
         Containers::Optional<Trade::MeshData> data = importer->mesh(i);
         if(data && data->hasAttribute(Trade::MeshAttribute::Position) &&
            data->hasAttribute(Trade::MeshAttribute::Normal) &&
+           data->hasAttribute(Trade::MeshAttribute::Tangent) &&
+           data->hasAttribute(Trade::MeshAttribute::TextureCoordinates) &&
            GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
         {
             if(bounds)
@@ -178,11 +186,12 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
             indices.setData(data->indexData());
             vertices.setData(data->vertexData());
 
-            meshes[i].emplace(MeshTools::compile(*data, indices, vertices));
-            instanceBuffers[i].emplace(InstanceDrawable3D::addInstancedBuffer(*meshes[i]));
+            meshes[meshOffset + i].emplace(MeshTools::compile(*data, indices, vertices));
+            instanceBuffers[meshOffset + i].emplace(InstanceDrawable3D::addInstancedBuffer(*meshes[i]));
 
-            velocityMeshes[i].emplace(MeshTools::compile(*data, indices, vertices));
-            velocityInstanceBuffers[i].emplace(VelocityInstanceDrawable3D::addInstancedBuffer(*velocityMeshes[i]));
+            velocityMeshes[meshOffset + i].emplace(MeshTools::compile(*data, indices, vertices));
+            velocityInstanceBuffers[meshOffset + i].emplace(
+                VelocityInstanceDrawable3D::addInstancedBuffer(*velocityMeshes[i]));
         }
     }
 
@@ -199,7 +208,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
         Containers::Pointer<Trade::AbstractMaterialData> data = importer->material(i);
         if(data && data->type() == Trade::MaterialType::Phong)
         {
-            materials[i].emplace(std::move(static_cast<Trade::PhongMaterialData&>(*data)));
+            materials[materialOffset + i].emplace(std::move(static_cast<Trade::PhongMaterialData&>(*data)));
         }
     }
 
@@ -235,7 +244,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
                     .setStorage(Math::log2(imageData->size().max()) + 1, format, imageData->size())
                     .setSubImage(0, {}, *imageData)
                     .generateMipmap();
-                textures[i].emplace(std::move(texture));
+                textures[textureOffset + i].emplace(std::move(texture));
             }
         }
     }
@@ -268,16 +277,14 @@ void Scene::addObject(Trade::AbstractImporter& importer,
         if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
            meshes[meshOffset + objectData->instance()])
         {
-            bool textured = false;
+            bool useDefaultMaterial = true;
             const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
             if(materialId != -1 && materials[materialOffset + materialId])
             {
                 const Trade::PhongMaterialData& material = *materials[materialOffset + materialId];
-                constexpr Trade::PhongMaterialData::Flags texturedFlags =
-                    Trade::PhongMaterialData::Flag::DiffuseTexture | Trade::PhongMaterialData::Flag::SpecularTexture |
-                    Trade::PhongMaterialData::Flag::NormalTexture;
-
-                if((material.flags() & texturedFlags) == texturedFlags)
+                const Trade::PhongMaterialData::Flags requiredFlags =
+                    TexturedDrawable3D::requiredMaterialFlags(texturedMaterialShader);
+                if((material.flags() & requiredFlags) == requiredFlags)
                 {
                     TexturedDrawable3D* drawable =
                         new TexturedDrawable3D(object,
@@ -288,27 +295,25 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                                                textures.suffix(textureOffset),
                                                material);
                     drawables.add(*drawable);
-                    textured = true;
+                    useDefaultMaterial = false;
                 }
             }
 
-            if(!textured)
+            if(useDefaultMaterial)
             {
-                // TODO
-                // can we unify textured and colored drawables somehow?
-                // maybe with a white default diffuse texture
-                // or just don't load color-only meshes
-                ColoredDrawable3D* drawable =
-                    new ColoredDrawable3D(object,
-                                          coloredMaterialShader,
-                                          meshOffset + objectData->instance(),
-                                          *meshes[meshOffset + objectData->instance()],
-                                          *instanceBuffers[meshOffset + objectData->instance()]);
+                TexturedDrawable3D* drawable =
+                    new TexturedDrawable3D(object,
+                                           texturedMaterialShader,
+                                           meshOffset + objectData->instance(),
+                                           *meshes[meshOffset + objectData->instance()],
+                                           *instanceBuffers[meshOffset + objectData->instance()],
+                                           textures, // first textures are the default textures
+                                           defaultMaterial);
                 drawables.add(*drawable);
-
-                // by default, there are no instances
-                // add a InstanceDrawable3D to drawable->instanceDrawables() for each instance
             }
+
+            // by default, there are no instances
+            // add an InstanceDrawable3D to drawable->instanceDrawables() for each instance
         }
 
         for(UnsignedInt childObjectId : objectData->children())

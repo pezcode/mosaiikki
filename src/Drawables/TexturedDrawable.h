@@ -1,42 +1,95 @@
 #pragma once
 
-#include "Drawables/ColoredDrawable.h"
+#include "Drawables/InstanceDrawable.h"
+#include <Magnum/SceneGraph/Object.h>
+#include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/Camera.h>
+#include <Magnum/Shaders/Phong.h>
 #include <Magnum/Trade/PhongMaterialData.h>
+#include <Magnum/GL/Mesh.h>
+#include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/Texture.h>
+#include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/ArrayView.h>
+#include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/Containers/Pointer.h>
 #include <Corrade/Utility/Assert.h>
 
 template<typename Transform>
-class TexturedDrawable : public ColoredDrawable<Transform>
+class TexturedDrawable : public Magnum::SceneGraph::Drawable3D
 {
 public:
+    typedef Magnum::SceneGraph::Object<Transform> Object3D;
+
     explicit TexturedDrawable(
-        typename ColoredDrawable<Transform>::Object3D& object,
+        Object3D& object,
         Magnum::Shaders::Phong& shader,
         Magnum::UnsignedInt meshId,
         Magnum::GL::Mesh& mesh,
         Magnum::GL::Buffer& instanceBuffer,
         Corrade::Containers::ArrayView<Corrade::Containers::Pointer<Magnum::GL::Texture2D>> textures,
         const Magnum::Trade::PhongMaterialData& material) :
-        ColoredDrawable<Transform>(object, shader, meshId, mesh, instanceBuffer), material(material)
+        Magnum::SceneGraph::Drawable3D(object),
+        shader(shader),
+        _meshId(meshId),
+        _mesh(mesh),
+        instanceBuffer(instanceBuffer),
+        material(material)
     {
         ambientTexture = diffuseTexture = specularTexture = normalTexture = nullptr;
 
-        if(material.flags() & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture)
-            ambientTexture = textures[material.ambientTexture()].get();
-        if(material.flags() & Magnum::Trade::PhongMaterialData::Flag::DiffuseTexture)
-            diffuseTexture = textures[material.diffuseTexture()].get();
-        if(material.flags() & Magnum::Trade::PhongMaterialData::Flag::SpecularTexture)
-            specularTexture = textures[material.specularTexture()].get();
-        if(material.flags() & Magnum::Trade::PhongMaterialData::Flag::NormalTexture)
-            normalTexture = textures[material.normalTexture()].get();
+        Magnum::Trade::PhongMaterialData::Flags requiredFlags = requiredMaterialFlags(shader);
+        CORRADE_ASSERT((requiredFlags & material.flags()) == requiredFlags, "Material missing required textures", );
 
-        CORRADE_ASSERT(!!ambientTexture == !!(shader.flags() & Magnum::Shaders::Phong::Flag::AmbientTexture) &&
-                           !!diffuseTexture == !!(shader.flags() & Magnum::Shaders::Phong::Flag::DiffuseTexture) &&
-                           !!specularTexture == !!(shader.flags() & Magnum::Shaders::Phong::Flag::SpecularTexture) &&
-                           !!normalTexture == !!(shader.flags() & Magnum::Shaders::Phong::Flag::NormalTexture),
-                       "Mismatching shader and material texture flags", );
+        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture)
+            ambientTexture = textures[material.ambientTexture()].get();
+        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::DiffuseTexture)
+            diffuseTexture = textures[material.diffuseTexture()].get();
+        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::SpecularTexture)
+            specularTexture = textures[material.specularTexture()].get();
+        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::NormalTexture)
+            normalTexture = textures[material.normalTexture()].get();
+    }
+
+    Magnum::UnsignedInt meshId() const
+    {
+        return _meshId;
+    }
+
+    Magnum::GL::Mesh& mesh()
+    {
+        return _mesh;
+    }
+
+    void setShininess(float newShininess)
+    {
+        shininess = newShininess;
+    }
+
+    InstanceDrawable<Transform>& addInstance(Object3D& object)
+    {
+        InstanceDrawable<Transform>* instance = new InstanceDrawable<Transform>(object, instanceData);
+        instanceDrawables.add(*instance);
+        return *instance;
+    }
+
+    Magnum::SceneGraph::DrawableGroup3D& instances()
+    {
+        return instanceDrawables;
+    }
+
+    static Magnum::Trade::PhongMaterialData::Flags requiredMaterialFlags(const Magnum::Shaders::Phong& shader)
+    {
+        Magnum::Trade::PhongMaterialData::Flags flags = {};
+        if(shader.flags() & Magnum::Shaders::Phong::Flag::AmbientTexture)
+            flags |= Magnum::Trade::PhongMaterialData::Flag::AmbientTexture;
+        if(shader.flags() & Magnum::Shaders::Phong::Flag::DiffuseTexture)
+            flags |= Magnum::Trade::PhongMaterialData::Flag::DiffuseTexture;
+        if(shader.flags() & Magnum::Shaders::Phong::Flag::SpecularTexture)
+            flags |= Magnum::Trade::PhongMaterialData::Flag::SpecularTexture;
+        if(shader.flags() & Magnum::Shaders::Phong::Flag::NormalTexture)
+            flags |= Magnum::Trade::PhongMaterialData::Flag::NormalTexture;
+        return flags;
     }
 
 private:
@@ -47,8 +100,11 @@ private:
         if(this->instanceDrawables.isEmpty())
             return;
 
-        this->shader.bindTextures(ambientTexture, diffuseTexture, specularTexture, normalTexture)
-            .setShininess(material.shininess())
+        if(ambientTexture || diffuseTexture || specularTexture || normalTexture)
+            this->shader.bindTextures(ambientTexture, diffuseTexture, specularTexture, normalTexture);
+
+        this->shader.setShininess(material.shininess())
+            .setAmbientColor(material.ambientColor())
             .setDiffuseColor(material.diffuseColor())
             .setSpecularColor(material.specularColor())
             .setProjectionMatrix(camera.projectionMatrix());
@@ -62,6 +118,14 @@ private:
         this->shader.draw(this->_mesh);
     }
 
-    Magnum::GL::Texture2D *ambientTexture, *diffuseTexture, *specularTexture, *normalTexture;
+    Magnum::Shaders::Phong& shader;
+    Magnum::UnsignedInt _meshId;
+    Magnum::GL::Mesh& _mesh;
+    Magnum::GL::Buffer& instanceBuffer;
     const Magnum::Trade::PhongMaterialData& material;
+
+    Magnum::GL::Texture2D *ambientTexture, *diffuseTexture, *specularTexture, *normalTexture;
+
+    Magnum::SceneGraph::DrawableGroup3D instanceDrawables;
+    typename InstanceDrawable<Transform>::InstanceArray instanceData;
 };
