@@ -6,9 +6,9 @@
 #include <Magnum/Math/Vector3.h>
 #include <Magnum/Math/Angle.h>
 #include <Magnum/Math/Constants.h>
-#include <Corrade/Utility/StlMath.h> // cmath but without unneeded C++ 17 stuff
 
 // continually rotate an object around an axis with a given angular velocity
+// rotates until a given angle (range) has been covered, then rotates in the opposite direction
 template<typename Transform>
 class AxisRotationAnimable : public Magnum::SceneGraph::Animable3D
 {
@@ -17,12 +17,15 @@ public:
 
     explicit AxisRotationAnimable(Object3D& object,
                                   const Magnum::Vector3& axis,
-                                  Magnum::Rad velocity /* radians per second */) :
+                                  Magnum::Rad velocity, /* radians per second */
+                                  Magnum::Rad range = Magnum::Math::Constants<Magnum::Rad>::inf() /* radians */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
         velocity(velocity),
-        distance(0.0f)
+        range(Magnum::Math::abs(range)),
+        distance(0.0f),
+        direction(1.0f)
     {
         setRepeated(true);
     }
@@ -42,20 +45,30 @@ private:
     {
         transformation.rotateLocal(-distance, axis);
         distance = Magnum::Rad(0.0f);
+        direction = 1.0f;
     }
 
     virtual void animationStep(Magnum::Float /*absolute*/, Magnum::Float delta) override
     {
-        Magnum::Rad deltaDistance = velocity * delta;
-        distance = Magnum::Rad(std::fmod(float(distance + deltaDistance), Magnum::Math::Constants<float>::pi()));
+        Magnum::Rad deltaDistance = direction * velocity * delta;
+        Magnum::Rad diff = Magnum::Math::abs(distance + deltaDistance) - range;
+        while(diff > Magnum::Rad(0.0f))
+        {
+            direction *= -1.0f;
+            deltaDistance += 2.0f * diff * direction;
+            diff -= 2.0f * range;
+        }
+
+        distance += deltaDistance;
         transformation.rotateLocal(deltaDistance, axis);
     }
 
     Magnum::SceneGraph::AbstractTranslationRotation3D& transformation;
 
     const Magnum::Vector3 axis;
+    const Magnum::Rad range;
     const Magnum::Rad velocity;
 
-    Magnum::Rad angle;
     Magnum::Rad distance;
+    float direction;
 };

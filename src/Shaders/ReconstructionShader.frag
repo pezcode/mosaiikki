@@ -320,12 +320,12 @@ void main()
 		}
 		else
 		{
-			// force occlusion check to prevent ghosting when the previously
-			// occluded pixel is at the far plane
+			// force occlusion check to prevent ghosting around previously
+			// occluded pixels
 			// if we only check for quarter-pixel movement, we'd see (0,0) movement in
 			// that case and directly use the old frame's, but we need to average
 
-			// TODO this causes jittering around object edges for perfectly still scenes
+			// TODO this causes noticable jittering around object edges for perfectly still scenes
 			// because now the average is taken even if there is nothing being occluded
 
 			// similarly for velocityFromDepth, where a pixel at the far plane is close enough

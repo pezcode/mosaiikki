@@ -619,9 +619,9 @@ void Mosaiikki::buildUI()
                                                                        : SceneGraph::AnimationState::Paused);
     }
 
-    // TODO rotation (e.g. panning) instead of translation animation
-    // requires a rotation angle limit in AxisRotationAnimable
-    if(scene->cameraAnimables.size() > 0)
+    for(size_t i = 0; i < scene->cameraAnimables.size(); i++)
+    {
         scene->cameraAnimables[0].setState(options.scene.animatedCamera ? SceneGraph::AnimationState::Running
                                                                         : SceneGraph::AnimationState::Paused);
+    }
 }

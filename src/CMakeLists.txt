@@ -11,8 +11,8 @@ set(SOURCES
 	Drawables/ColoredDrawable.h
 	Drawables/TexturedDrawable.h
 	Drawables/InstanceDrawable.h
-	AxisTranslationAnimable.h
-	AxisRotationAnimable.h
+	Animables/AxisTranslationAnimable.h
+	Animables/AxisRotationAnimable.h
 	Feature.h
 	Options.h
 	MagnumShadersSampleInterpolationOverride.h

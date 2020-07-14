@@ -8,6 +8,7 @@
 #include <Magnum/ImageView.h>
 #include <Magnum/PixelFormat.h>
 #include <Magnum/Math/Color.h>
+#include <Magnum/Math/Constants.h>
 #include <Magnum/Math/FunctionsBatch.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
@@ -16,6 +17,7 @@
 
 using namespace Magnum;
 using namespace Magnum::Math::Literals;
+using namespace Corrade;
 using namespace Feature;
 
 Scene::Scene(NoCreateT) :
@@ -32,7 +34,7 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
     cameraObject.setParent(&scene).translate(Vector3::zAxis(-5.0f));
     camera.reset(new SceneGraph::Camera3D(cameraObject));
 
-    SceneGraph::Animable3D* animable = new TranslationAnimable3D(cameraObject, Vector3::yAxis(), 3.0f, -5.5f);
+    SceneGraph::Animable3D* animable = new RotationAnimable3D(cameraObject, Vector3::yAxis(), 15.0_degf, 45.0_degf);
     cameraAnimables.add(*animable);
     animable->setState(SceneGraph::AnimationState::Running);
 
@@ -107,9 +109,10 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
                     Vector3 localY = toLocal * Vector3::yAxis();
 
                     SceneGraph::Animable3D* translationAnimable =
-                        new TranslationAnimable3D(instance, localX, 3.0f * localX.length(), 5.5f * localX.length());
+                        new TranslationAnimable3D(instance, localX, 5.5f * localX.length(), 3.0f * localX.length());
                     meshAnimables.add(*translationAnimable);
-                    SceneGraph::Animable3D* rotationAnimable = new RotationAnimable3D(instance, localY, 90.0_degf);
+                    SceneGraph::Animable3D* rotationAnimable =
+                        new RotationAnimable3D(instance, localY, 90.0_degf, Rad(Constants::inf()));
                     meshAnimables.add(*rotationAnimable);
 
                     translationAnimable->setState(SceneGraph::AnimationState::Running);

@@ -4,6 +4,7 @@
 #include <Magnum/SceneGraph/AbstractTranslation.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/Math/Vector3.h>
+#include <Magnum/Math/Constants.h>
 
 // continually moves an object back and forth along an axis
 // oscillates around the original position with the given velocity, range units in each direction
@@ -16,13 +17,13 @@ public:
 
     explicit AxisTranslationAnimable(Object3D& object,
                                      const Magnum::Vector3& axis,
-                                     float range /* units */,
-                                     float velocity /* units per second */) :
+                                     float velocity, /* units per second */
+                                     float range = Magnum::Constants::inf<float>() /* units */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
-        range(Magnum::Math::abs(range)),
         velocity(velocity),
+        range(Magnum::Math::abs(range)),
         distance(0.0f),
         direction(1.0f)
     {
@@ -67,7 +68,7 @@ private:
     Magnum::SceneGraph::AbstractTranslation3D& transformation;
 
     const Magnum::Vector3 axis;
-    float range;
+    const float range;
     const float velocity;
 
     float distance;

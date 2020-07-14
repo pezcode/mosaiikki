@@ -3,14 +3,11 @@
 #include "Feature.h"
 
 #include "Drawables/ColoredDrawable.h"
-#include "Drawables/ColoredDrawable.h"
-#include "Drawables/TexturedDrawable.h"
 #include "Drawables/TexturedDrawable.h"
 #include "Drawables/VelocityDrawable.h"
-#include "Drawables/VelocityDrawable.h"
-#include "AxisTranslationAnimable.h"
-#include "AxisRotationAnimable.h"
 #include "Shaders/VelocityShader.h"
+#include "Animables/AxisTranslationAnimable.h"
+#include "Animables/AxisRotationAnimable.h"
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Scene.h>
 #include <Magnum/SceneGraph/Camera.h>
