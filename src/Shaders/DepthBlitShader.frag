@@ -1,6 +1,6 @@
 // gl_SampleID
 // core in 4.0
-#extension GL_ARB_sample_shading : require
+//#extension GL_ARB_sample_shading : require
 
 uniform sampler2D depth; // full-resolution velocity pass depth
 

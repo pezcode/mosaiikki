@@ -242,57 +242,58 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
 
 void Mosaiikki::setSamplePositions()
 {
+    const GLsizei SAMPLE_COUNT = 2;
+    Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
+
+    // set explicit MSAA sample locations
+    // OpenGL does not specify them, so we have to do it manually using one of the three extensions
+
     // ARB extension is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
     bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
     bool ext_nv = GL::Context::current().isExtensionSupported<GL::Extensions::NV::sample_locations>();
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
     // Haven't found an Intel extension although D3D12 support for it exists
 
-    CORRADE_ASSERT(ext_arb || ext_nv || ext_amd, "No extension for setting sample positions found", );
-
-    GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
-
     framebuffers[0].bind();
 
-    // set explicit sample locations
-    // OpenGL does not specify them, so we have to do it manually using one of the three extensions
-
-    const GLsizei SAMPLE_COUNT = 2;
-    Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
-
-    if(ext_arb)
+    if(ext_arb || ext_nv || ext_amd)
     {
-        glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
-    }
-    else if(ext_nv)
-    {
-        glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
-    }
-    else if(ext_amd)
-    {
-        for(GLuint i = 0; i < SAMPLE_COUNT; i++)
+        if(ext_arb)
         {
-            glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, samplePositions[i].data());
+            glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
         }
+        else if(ext_nv)
+        {
+            glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
+        }
+        else if(ext_amd)
+        {
+            for(GLuint i = 0; i < SAMPLE_COUNT; i++)
+            {
+                glSetMultisamplefvAMD(GL_SAMPLE_POSITION, i, samplePositions[i].data());
+            }
+        }
+    }
+    else
+    {
+        // none of the extensions are supported (also happens in RenderDoc which force-disables it)
+        // warn here instead of aborting because you might have the correct sample positions anyway
+        // the sample positions we request seem to be the default on Nvidia GPUs (we *could* actually check...)
+        Warning() << "No extension for setting sample positions found!";
     }
 
     // read back and report actual sample locations (could be quantized)
     // just a sanity check, really
+
+    Debug() << "MSAA 2x sample positions:";
     for(GLuint i = 0; i < SAMPLE_COUNT; i++)
     {
         // GL_SAMPLE_POSITION reads the default sample location with ARB/NV_sample_locations
         GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
                               : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
         glGetMultisamplefv(name, i, samplePositions[i].data());
+        Debug() << samplePositions[i];
     }
-
-    Debug() << "MSAA 2x sample positions:";
-    for(Vector2 pos : samplePositions)
-    {
-        Debug() << pos;
-    }
-
-    GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
 
     GL::defaultFramebuffer.bind();
 }
