@@ -33,19 +33,9 @@ layout(std140) uniform OptionsBlock
 	float depthTolerance;
 };
 
-// bit masks for flags
-// this should match the ones in ReconstructionShader::setOptions
-#define USE_VELOCITY_BUFFER     (1 << 0)
-#define ASSUME_OCCLUSION        (1 << 1)
-
-#define DEBUG_SHOW_SAMPLES      (1 << 2)
-#define DEBUG_SHOW_EVEN_SAMPLES (1 << 3)
-#define DEBUG_SHOW_VELOCITY     (1 << 4)
-#define DEBUG_SHOW_COLORS       (1 << 5)
-
-#define OPTION_SET(OPT) ((flags & OPT) != 0)
+#define OPTION_SET(OPT) ((flags & (OPTION_ ## OPT)) != 0)
 #ifdef DEBUG
-#define DEBUG_OPTION_SET(OPT) OPTION_SET(OPT)
+#define DEBUG_OPTION_SET(OPT) OPTION_SET(DEBUG_ ## OPT)
 #else
 #define DEBUG_OPTION_SET(OPT) (false)
 #endif
@@ -204,15 +194,52 @@ vec4 undoTonemap(vec4 color)
 	return color / (1.0 - max(color.r, max(color.g, color.b)));
 }
 
-vec4 fetchColorAverage(ivec2 coords, int quadrant)
+struct ColorNeighborhood
+{
+	// values are tonemapped!
+	// if you want to output any of these (or a linear combination of them) use undoTonemap
+	vec4 up;
+	vec4 down;
+	vec4 left;
+	vec4 right;
+};
+
+// differential blend operator
+// look at vertical and horizontal color blend
+// higher weight on whichever has the lowest color difference
+// this greatly reduces checkerboard artifacts at color discontinuities and edges
+
+float colorBlendWeight(vec4 a, vec4 b)
+{
+	return 1.0 / max(length(a.rgb - b.rgb), 0.001);
+}
+
+vec4 differentialBlend(ColorNeighborhood neighbors)
+{
+	float verticalWeight = colorBlendWeight(neighbors.up, neighbors.down);
+	float horizontalWeight = colorBlendWeight(neighbors.left, neighbors.right);
+	vec4 result = (neighbors.up + neighbors.down) * verticalWeight +
+	              (neighbors.left + neighbors.right) * horizontalWeight;
+	return result * 0.5 * 1.0/(verticalWeight + horizontalWeight);
+}
+
+void fetchColorNeighborhood(ivec2 coords, int quadrant, out ColorNeighborhood neighbors)
 {
 	int k = quadrant * 4;
-	vec4 result =
-		tonemap(fetchQuadrant(color, coords + directionOffsets[k + UP   ], directionQuadrants[quadrant][UP   ])) +
-		tonemap(fetchQuadrant(color, coords + directionOffsets[k + DOWN ], directionQuadrants[quadrant][DOWN ])) +
-		tonemap(fetchQuadrant(color, coords + directionOffsets[k + LEFT ], directionQuadrants[quadrant][LEFT ])) +
-		tonemap(fetchQuadrant(color, coords + directionOffsets[k + RIGHT], directionQuadrants[quadrant][RIGHT]));
-	return undoTonemap(result * 0.25);
+	neighbors.up    = tonemap(fetchQuadrant(color, coords + directionOffsets[k + UP   ], directionQuadrants[quadrant][UP   ]));
+	neighbors.down  = tonemap(fetchQuadrant(color, coords + directionOffsets[k + DOWN ], directionQuadrants[quadrant][DOWN ]));
+	neighbors.left  = tonemap(fetchQuadrant(color, coords + directionOffsets[k + LEFT ], directionQuadrants[quadrant][LEFT ]));
+	neighbors.right = tonemap(fetchQuadrant(color, coords + directionOffsets[k + RIGHT], directionQuadrants[quadrant][RIGHT]));
+}
+
+vec4 colorAverage(ColorNeighborhood neighbors)
+{
+	vec4 result;
+	if(OPTION_SET(DIFFERENTIAL_BLENDING))
+		result = differentialBlend(neighbors);
+	else
+		result = (neighbors.up + neighbors.down + neighbors.left + neighbors.right) * 0.25;
+	return undoTonemap(result);
 }
 
 // undo depth projection
@@ -264,7 +291,7 @@ void main()
 	);
 
 	// debug output: velocity buffer
-	if(DEBUG_OPTION_SET(DEBUG_SHOW_VELOCITY))
+	if(DEBUG_OPTION_SET(SHOW_VELOCITY))
 	{
 		vec2 vel = texelFetch(velocity, coords, 0).xy;
 		fragColor = vec4(abs(vel * 255.0), 0.0, 1.0);
@@ -272,7 +299,7 @@ void main()
 	}
 
 	// debug output: checkered frame
-	if(DEBUG_OPTION_SET(DEBUG_SHOW_SAMPLES))
+	if(DEBUG_OPTION_SET(SHOW_SAMPLES))
 	{
 		int sampleFrame = OPTION_SET(DEBUG_SHOW_EVEN_SAMPLES) ? 0 : 1;
 		ivec2 boardQuadrants = FRAME_QUADRANTS[sampleFrame];
@@ -293,10 +320,13 @@ void main()
 		return;
 	}
 
+	ColorNeighborhood neighbors;
+	fetchColorNeighborhood(halfCoords, quadrant, neighbors);
+
 	// we have no old data, use average
 	if(cameraParametersChanged)
 	{
-		fragColor = fetchColorAverage(halfCoords, quadrant);
+		fragColor = colorAverage(neighbors);
 		return;
 	}
 
@@ -347,10 +377,10 @@ void main()
 	// is the previous position outside the screen?
 	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
 	{
-		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
+		if(DEBUG_OPTION_SET(SHOW_COLORS))
 			fragColor = vec4(1.0, 1.0, 0.0, 1.0);
 		else
-			fragColor = fetchColorAverage(halfCoords, quadrant);
+			fragColor = colorAverage(neighbors);
 		return;
 	}
 
@@ -363,10 +393,10 @@ void main()
 	ivec2 oldQuadrants = FRAME_QUADRANTS[1 - currentFrame];
 	if(!any(equal(ivec2(oldQuadrant), oldQuadrants)))
 	{
-		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
+		if(DEBUG_OPTION_SET(SHOW_COLORS))
 			fragColor = vec4(0.0, 1.0, 1.0, 1.0);
 		else
-			fragColor = fetchColorAverage(halfCoords, quadrant);
+			fragColor = colorAverage(neighbors);
 		return;
 	}
 
@@ -397,10 +427,10 @@ void main()
 
 	if(occluded)
 	{
-		if(DEBUG_OPTION_SET(DEBUG_SHOW_COLORS))
+		if(DEBUG_OPTION_SET(SHOW_COLORS))
 			fragColor = vec4(1.0, 0.0, 1.0, 1.0);
 		else
-			fragColor = fetchColorAverage(halfCoords, quadrant);
+			fragColor = colorAverage(neighbors);
 		return;
 	}
 

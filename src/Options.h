@@ -15,6 +15,7 @@ struct Options
         bool createVelocityBuffer = true;
         bool assumeOcclusion = false;
         float depthTolerance = 0.01f;
+        bool differentialBlending = true;
 
         struct Debug
         {

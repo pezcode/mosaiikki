@@ -6,10 +6,10 @@ set(SOURCES
 	ImGuiApplication.cpp
 	Scene.h
 	Scene.cpp
-	Drawables/VelocityDrawable.h
-	Drawables/VelocityInstanceDrawable.h
 	Drawables/TexturedDrawable.h
 	Drawables/InstanceDrawable.h
+    Drawables/VelocityDrawable.h
+	Drawables/VelocityInstanceDrawable.h
 	Animables/AxisTranslationAnimable.h
 	Animables/AxisRotationAnimable.h
     DefaultMaterial.h
@@ -17,12 +17,13 @@ set(SOURCES
 	Options.h
 	MagnumShadersSampleInterpolationOverride.h
 	MagnumShadersSampleInterpolationOverride.cpp
-	Shaders/ReconstructionShader.h
-	Shaders/ReconstructionShader.cpp
 	Shaders/VelocityShader.h
 	Shaders/VelocityShader.cpp
 	Shaders/DepthBlitShader.h
 	Shaders/DepthBlitShader.cpp
+	Shaders/ReconstructionShader.h
+	Shaders/ReconstructionShader.cpp
+    Shaders/ReconstructionOptions.h
 )
 
 set(SHADERS

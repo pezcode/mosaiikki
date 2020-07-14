@@ -1,5 +1,6 @@
 #include "ReconstructionShader.h"
 
+#include "ReconstructionOptions.h"
 #include <Magnum/GL/Shader.h>
 #include <Magnum/GL/MultisampleTexture.h>
 #include <Magnum/GL/Texture.h>
@@ -35,6 +36,7 @@ ReconstructionShader::ReconstructionShader(const Flags flags) :
 
     frag.addSource(flags & Flag::Debug ? "#define DEBUG\n" : "");
     frag.addSource(Utility::formatString("#define COLOR_OUTPUT_ATTRIBUTE_LOCATION {}\n", ColorOutput));
+    frag.addSource(rs.get("ReconstructionOptions.h"));
     frag.addSource(rs.get("ReconstructionShader.frag"));
 
     // possibly parallel compilation
@@ -100,17 +102,19 @@ ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruc
 {
     GLint flags_bitset = 0;
     if(options.createVelocityBuffer)
-        flags_bitset |= (1 << 0);
+        flags_bitset |= OPTION_USE_VELOCITY_BUFFER;
     if(options.assumeOcclusion)
-        flags_bitset |= (1 << 1);
+        flags_bitset |= OPTION_ASSUME_OCCLUSION;
+    if(options.differentialBlending)
+        flags_bitset |= OPTION_DIFFERENTIAL_BLENDING;
     if(options.debug.showSamples != Options::Reconstruction::Debug::Samples::Combined)
-        flags_bitset |= (1 << 2);
+        flags_bitset |= OPTION_DEBUG_SHOW_SAMPLES;
     if(options.debug.showSamples == Options::Reconstruction::Debug::Samples::Even)
-        flags_bitset |= (1 << 3);
+        flags_bitset |= OPTION_DEBUG_SHOW_EVEN_SAMPLES;
     if(options.debug.showVelocity)
-        flags_bitset |= (1 << 4);
+        flags_bitset |= OPTION_DEBUG_SHOW_VELOCITY;
     if(options.debug.showColors)
-        flags_bitset |= (1 << 5);
+        flags_bitset |= OPTION_DEBUG_SHOW_COLORS;
 
     optionsData.flags = flags_bitset;
     optionsData.depthTolerance = options.depthTolerance;

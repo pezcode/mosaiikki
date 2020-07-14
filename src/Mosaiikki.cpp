@@ -137,6 +137,15 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     {
         // patch the built-in Phong shader to use sample interpolation
+        // TODO is this actually required?
+        // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_sample_shading.txt:
+        // "When the sample shading fraction is 1.0, a separate set of colors and
+        // other associated data are evaluated for each sample, each set of values
+        // are evaluated at the sample location."
+        // https://www.oreilly.com/library/view/opengl-programming-guide/9780132748445/ch04lev2sec9.html:
+        // "If you can't modify a fragment shader to use the sample keyword [...], you can have OpenGL do
+        // sample shading by passing GL_SAMPLE_SHADING to glEnable(). This will cause unmodified fragment
+        // shader in variables to be interpolated to sample locations automatically."
         MagnumShadersSampleInterpolationOverride shaderOverride({ "Phong.vert", "Phong.frag" });
 
         scene.emplace();
@@ -514,6 +523,12 @@ void Mosaiikki::buildUI()
             if(ImGui::IsItemHovered())
                 ImGui::SetTooltip("Maximum allowed view space depth difference before assuming occlusion");
         }
+
+        ImGui::Checkbox("Use differential blending", &options.reconstruction.differentialBlending);
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip(
+                "When blending pixel neighbor horizontal/vertical axes, weight their contribution by how small the color difference is.\n"
+                "This greatly reduces checkerboard artifacts at sharp edges.");
 
 #ifdef CORRADE_IS_DEBUG_BUILD
 
