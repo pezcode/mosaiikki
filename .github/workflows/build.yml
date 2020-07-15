@@ -15,6 +15,7 @@ jobs:
     - name: Dependencies
       if: startsWith(matrix.os,'ubuntu')
       run: |
+        sudo apt-get update
         sudo apt-get install xorg-dev libglu1-mesa-dev
     - name: Generate
       run: |
