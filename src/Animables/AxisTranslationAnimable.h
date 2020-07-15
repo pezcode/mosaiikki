@@ -23,9 +23,7 @@ public:
         transformation(object),
         axis(axis.normalized()),
         velocity(velocity),
-        range(Magnum::Math::abs(range)),
-        distance(0.0f),
-        direction(1.0f)
+        range(Magnum::Math::abs(range))
     {
         setRepeated(true);
     }
@@ -45,7 +43,7 @@ private:
         while(diff > 0.0f)
         {
             // handle reflected distance, important for huge deltas
-            direction *= -1.0f;
+            direction = -direction;
             deltaDistance += 2.0f * diff * direction;
             diff -= 2.0f * range;
         }
@@ -59,6 +57,6 @@ private:
     const float velocity;
     const float range;
 
-    float distance;
-    float direction;
+    float distance = 0.0f;
+    float direction = 1.0f;
 };

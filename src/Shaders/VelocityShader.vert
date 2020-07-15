@@ -2,11 +2,11 @@
 // core in 3.3
 #extension GL_ARB_explicit_attrib_location : require
 
-uniform mat4 transformationMatrix;
-uniform mat4 oldTransformationMatrix;
+uniform mat4 transformationMatrix = mat4(1.0);
+uniform mat4 oldTransformationMatrix = mat4(1.0);
 
-uniform mat4 projectionMatrix;
-uniform mat4 oldProjectionMatrix;
+uniform mat4 projectionMatrix = mat4(1.0);
+uniform mat4 oldProjectionMatrix = mat4(1.0);
 
 layout(location = POSITION_ATTRIBUTE_LOCATION) in vec4 position;
 

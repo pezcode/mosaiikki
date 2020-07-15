@@ -1,10 +1,13 @@
 #pragma once
 
 #include <Magnum/SceneGraph/Object.h>
-#include <vector>
+#include <Corrade/Containers/Array.h>
+#include <Corrade/Containers/GrowableArray.h>
 
 namespace Feature
 {
+    template<typename F> using FeatureList = Corrade::Containers::Array<F*>;
+
 // find first feature of the specified type
 template<typename F, typename T>
 F* feature(Magnum::SceneGraph::Object<T>& object)
@@ -22,15 +25,15 @@ F* feature(Magnum::SceneGraph::Object<T>& object)
 
 // find all features of the specified type
 template<typename F, typename T>
-std::vector<F*> features(Magnum::SceneGraph::Object<T>& object)
+FeatureList<F> features(Magnum::SceneGraph::Object<T>& object)
 {
-    std::vector<F*> result;
+    FeatureList<F> result;
     for(auto& candidate : object.features())
     {
         F* feature = dynamic_cast<F*>(&candidate);
         if(feature)
         {
-            result.push_back(feature);
+            Corrade::Containers::arrayAppend(result, feature);
         }
     }
     return result;
@@ -38,9 +41,9 @@ std::vector<F*> features(Magnum::SceneGraph::Object<T>& object)
 
 // find all features of the specified type in any direct or indirect children
 template<typename F, typename T>
-std::vector<F*> featuresInChildren(Magnum::SceneGraph::Object<T>& object, std::vector<F*>* result = nullptr)
+FeatureList<F> featuresInChildren(Magnum::SceneGraph::Object<T>& object, FeatureList<F>* result = nullptr)
 {
-    std::vector<F*> storage;
+    FeatureList<F> storage;
     if(result == nullptr)
     {
         result = &storage;
@@ -52,7 +55,7 @@ std::vector<F*> featuresInChildren(Magnum::SceneGraph::Object<T>& object, std::v
             F* feature = dynamic_cast<F*>(&candidate);
             if(feature)
             {
-                result->push_back(feature);
+                Corrade::Containers::arrayAppend(*result, feature);
             }
         }
     }
@@ -62,14 +65,14 @@ std::vector<F*> featuresInChildren(Magnum::SceneGraph::Object<T>& object, std::v
         featuresInChildren(child, result);
     }
 
-    return *result;
+    return storage;
 }
 
 // find all features of the specified type in any direct or indirect parent
 template<typename F, typename T>
-std::vector<F*> featuresInParents(Magnum::SceneGraph::Object<T>& object, std::vector<F*>* result = nullptr)
+FeatureList<F> featuresInParents(Magnum::SceneGraph::Object<T>& object, FeatureList<F>* result = nullptr)
 {
-    std::vector<F*>* storage;
+    FeatureList<F> storage;
     if(result == nullptr)
     {
         result = &storage;
@@ -81,7 +84,7 @@ std::vector<F*> featuresInParents(Magnum::SceneGraph::Object<T>& object, std::ve
             F* feature = dynamic_cast<F*>(&candidate);
             if(feature)
             {
-                result->push_back(feature);
+                Corrade::Containers::arrayAppend(*result, feature);
             }
         }
     }
@@ -90,6 +93,6 @@ std::vector<F*> featuresInParents(Magnum::SceneGraph::Object<T>& object, std::ve
     {
         featuresInParents(object.parent(), result);
     }
-    return *result;
+    return storage;
 }
 } // namespace Feature

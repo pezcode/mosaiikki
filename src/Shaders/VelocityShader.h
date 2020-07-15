@@ -55,11 +55,10 @@ private:
 
     Flags _flags;
 
-    Magnum::Int transformationMatrixUniform;
-    Magnum::Int oldTransformationMatrixUniform;
-
-    Magnum::Int projectionMatrixUniform;
-    Magnum::Int oldProjectionMatrixUniform;
+    Magnum::Int transformationMatrixUniform = -1;
+    Magnum::Int oldTransformationMatrixUniform = -1;
+    Magnum::Int projectionMatrixUniform = -1;
+    Magnum::Int oldProjectionMatrixUniform = -1;
 };
 
 CORRADE_ENUMSET_OPERATORS(VelocityShader::Flags)

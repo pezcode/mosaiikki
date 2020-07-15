@@ -50,6 +50,8 @@ private:
 
     Corrade::Containers::Pointer<Scene> scene;
 
+    Magnum::GL::Mesh fullscreenTriangle;
+
     Magnum::Timeline timeline;
 
     bool paused = false;

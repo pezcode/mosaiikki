@@ -9,6 +9,7 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/GL/Renderer.h>
+#include <Magnum/MeshTools/FullScreenTriangle.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Corrade/Utility/Arguments.h>
@@ -22,9 +23,7 @@ using namespace Feature;
 Mosaiikki::Mosaiikki(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
     logFile(std::string(NAME) + ".log", std::fstream::out | std::fstream::trunc),
-    _debug(nullptr),
-    _warning(nullptr),
-    _error(nullptr),
+    fullscreenTriangle(NoCreate),
     velocityFramebuffer(NoCreate),
     velocityAttachment(NoCreate),
     velocityDepthAttachment(NoCreate),
@@ -52,11 +51,13 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     conf.setTitle(NAME);
     conf.setWindowFlags(Configuration::WindowFlag::Resizable);
 
+    constexpr GL::Version GLVersion = GL::Version::GL320;
+
     GLConfiguration glConf;
     // for anything >= 3.20 Magnum creates a core context
     // if we don't set a version on Nvidia drivers, we get the highest version possible, but a compatibility context :(
     // forward-compatible removes anything deprecated
-    glConf.setVersion(GL::Version::GL320);
+    glConf.setVersion(GLVersion);
     glConf.addFlags(GLConfiguration::Flag::ForwardCompatible);
 #ifdef CORRADE_IS_DEBUG_BUILD
     glConf.addFlags(GLConfiguration::Flag::Debug);
@@ -151,6 +152,9 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
     scene->camera->setViewport(framebufferSize());
     updateProjectionMatrix(*scene->camera);
 
+    CORRADE_INTERNAL_CONSTEXPR_ASSERT(GLVersion >= GL::Version::GL300);
+    fullscreenTriangle = MeshTools::fullScreenTriangle(GLVersion);
+
     timeline.start();
 }
 
@@ -179,8 +183,8 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     velocityDepthAttachment.setLabel("Velocity depth texture");
 
     velocityFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
-    velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0);
-    velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0);
+    velocityFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), velocityAttachment, 0 /* level */);
+    velocityFramebuffer.attachTexture(GL::Framebuffer::BufferAttachment::Depth, velocityDepthAttachment, 0 /* level */);
     velocityFramebuffer.mapForDraw({ { VelocityShader::VelocityOutput, GL::Framebuffer::ColorAttachment(0) } });
     velocityFramebuffer.setLabel("Velocity framebuffer");
 
@@ -203,8 +207,8 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     for(size_t i = 0; i < FRAMES; i++)
     {
         framebuffers[i] = GL::Framebuffer({ { 0, 0 }, quarterSize });
-        framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i);
-        framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i);
+        framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i /* layer */);
+        framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i /* layer */);
         framebuffers[i].mapForDraw({ { Shaders::Generic3D::ColorOutput, GL::Framebuffer::ColorAttachment(0) } });
         framebuffers[i].setLabel(Utility::formatString("Framebuffer {} (quarter-res)", i + 1));
 
@@ -223,7 +227,7 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
     outputColorAttachment.setLabel("Output color texture");
 
     outputFramebuffer = GL::Framebuffer({ { 0, 0 }, size });
-    outputFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), outputColorAttachment, 0);
+    outputFramebuffer.attachTexture(GL::Framebuffer::ColorAttachment(0), outputColorAttachment, 0 /* level */);
     // no depth buffer needed
     outputFramebuffer.mapForDraw({ { ReconstructionShader::ColorOutput, GL::Framebuffer::ColorAttachment(0) } });
     outputFramebuffer.setLabel("Output framebuffer");
@@ -237,10 +241,10 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
 void Mosaiikki::setSamplePositions()
 {
     const GLsizei SAMPLE_COUNT = 2;
-    Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
+    const Vector2 samplePositions[SAMPLE_COUNT] = { { 0.75f, 0.75f }, { 0.25f, 0.25f } };
 
     // set explicit MSAA sample locations
-    // OpenGL does not specify them, so we have to do it manually using one of the three extensions
+    // OpenGL does not specify them, so we have to do it manually using one of three extensions
 
     // ARB extension is really only supported by Nvidia (Maxwell and later) and requires GL 4.5
     bool ext_arb = GL::Context::current().isExtensionSupported<GL::Extensions::ARB::sample_locations>();
@@ -248,16 +252,35 @@ void Mosaiikki::setSamplePositions()
     bool ext_amd = GL::Context::current().isExtensionSupported<GL::Extensions::AMD::sample_positions>();
     // Haven't found an Intel extension although D3D12 support for it exists
 
-    framebuffers[0].bind();
-
-    if(ext_arb || ext_nv || ext_amd)
+    if(!(ext_arb || ext_nv || ext_amd))
     {
+        // none of the extensions are supported (also happens in RenderDoc which force-disables it)
+        // warn here instead of aborting because you might have the correct sample positions anyway
+        // and we check below
+        // the sample positions we request seem to be the default on Nvidia GPUs
+        Warning() << "No extension for setting sample positions found!";
+    }
+
+    for(size_t frame = 0; frame < FRAMES; frame++)
+    {
+        framebuffers[frame].bind();
+
         if(ext_arb)
         {
+            int supportedSampleCount = 0;
+            glGetIntegerv(GL_PROGRAMMABLE_SAMPLE_LOCATION_TABLE_SIZE_ARB, &supportedSampleCount);
+            CORRADE_INTERNAL_ASSERT(SAMPLE_COUNT <= supportedSampleCount);
+
+            glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_PROGRAMMABLE_SAMPLE_LOCATIONS_ARB, GL_TRUE);
             glFramebufferSampleLocationsfvARB(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
         }
         else if(ext_nv)
         {
+            int supportedSampleCount = 0;
+            glGetIntegerv(GL_PROGRAMMABLE_SAMPLE_LOCATION_TABLE_SIZE_NV, &supportedSampleCount);
+            CORRADE_INTERNAL_ASSERT(SAMPLE_COUNT <= supportedSampleCount);
+
+            glFramebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_PROGRAMMABLE_SAMPLE_LOCATIONS_NV, GL_TRUE);
             glFramebufferSampleLocationsfvNV(GL_FRAMEBUFFER, 0, SAMPLE_COUNT, samplePositions[0].data());
         }
         else if(ext_amd)
@@ -268,26 +291,32 @@ void Mosaiikki::setSamplePositions()
             }
         }
     }
-    else
-    {
-        // none of the extensions are supported (also happens in RenderDoc which force-disables it)
-        // warn here instead of aborting because you might have the correct sample positions anyway
-        // the sample positions we request seem to be the default on Nvidia GPUs (we *could* actually check...)
-        Warning() << "No extension for setting sample positions found!";
-    }
 
-    // read back and report actual sample locations (could be quantized)
-    // just a sanity check, really
+    // read back, report and check actual sample locations
 
-    Debug() << "MSAA 2x sample positions:";
+    bool mismatch = false;
+    Debug(Debug::Flag::NoSpace) << "MSAA " << SAMPLE_COUNT << "x sample positions:";
     for(GLuint i = 0; i < SAMPLE_COUNT; i++)
     {
+        Vector2 position;
         // GL_SAMPLE_POSITION reads the default sample location with ARB/NV_sample_locations
         GLenum name = ext_arb ? GL_PROGRAMMABLE_SAMPLE_LOCATION_ARB
                               : (ext_nv ? GL_PROGRAMMABLE_SAMPLE_LOCATION_NV : GL_SAMPLE_POSITION);
-        glGetMultisamplefv(name, i, samplePositions[i].data());
-        Debug() << samplePositions[i];
+        glGetMultisamplefv(name, i, position.data());
+        Debug(Debug::Flag::NoSpace) << i << ": " << position;
+
+        // positions can be quantized, so only do a rough comparison
+        // we can query the quantization amount (SUBSAMPLE_DISTANCE_AMD and SAMPLE_LOCATION_SUBPIXEL_BITS_NV)
+        // but we're interested in acceptable absolute error
+        constexpr float allowedError = 1.0f / 8.0f;
+        if((Math::abs(position - samplePositions[i]) > Vector2(allowedError)).any())
+        {
+            mismatch = true;
+        }
     }
+
+    if(mismatch)
+        Error() << "Wrong sample positions, output will likely be incorrect!";
 
     GL::defaultFramebuffer.bind();
 }
@@ -329,8 +358,17 @@ void Mosaiikki::drawEvent()
             velocityFramebuffer.clearColor(0, 0_rgbf);
             velocityFramebuffer.clearDepth(1.0f);
 
+            // dynamic object velocity
+            // camera velocity for static objects is calculated with reprojection in the checkerboard resolve pass
             if(scene->meshAnimables.runningCount() > 0)
             {
+                // offset depth for the depth blit, otherwise the depth test might fail in the quarter-res pass
+                // not entirely sure what causes this, could be floating point inaccuracy
+                // slope bias allows an offset based on triangle depth gradient,
+                // without it we'd need to use a larger constant bias and pray it works
+                GL::Renderer::enable(GL::Renderer::Feature::PolygonOffsetFill);
+                GL::Renderer::setPolygonOffset(1 /* slope bias */, 1 /* constant bias */);
+
                 // use current frame's jitter
                 // this only matters because we blit the velocity depth buffer to reuse it for the quarter resolution pass
                 // without it, you can use either jittered or unjittered, as long as they match
@@ -338,6 +376,8 @@ void Mosaiikki::drawEvent()
                     .setOldProjectionMatrix(oldMatrices[currentFrame]);
 
                 scene->camera->draw(scene->velocityDrawables);
+
+                GL::Renderer::disable(GL::Renderer::Feature::PolygonOffsetFill);
             }
         }
 
@@ -349,7 +389,7 @@ void Mosaiikki::drawEvent()
             GL::Framebuffer& framebuffer = framebuffers[currentFrame];
             framebuffer.bind();
 
-            const Color3 clearColor = 0x111111_rgbf;
+            const Color4 clearColor = Color4::fromSrgb(0x772953_rgbf); // Ubuntu Canonical aubergine
             framebuffer.clearColor(0, clearColor);
 
             // run fragment shader for each sample
@@ -359,16 +399,26 @@ void Mosaiikki::drawEvent()
             // copy and reuse velocity depth buffer
             if(options.reconstruction.createVelocityBuffer && options.reuseVelocityDepth)
             {
+                GL::DebugGroup group2(GL::DebugGroup::Source::Application, 0, "Velocity depth blit");
+
                 GL::Renderer::setDepthFunction(
                     GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
                 GL::Renderer::setColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // disable color writing
 
                 // blit to quarter res with max filter
                 depthBlitShader.bindDepth(velocityDepthAttachment);
-                depthBlitShader.draw();
+                depthBlitShader.draw(fullscreenTriangle);
 
                 GL::Renderer::setColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // enable color writing
                 GL::Renderer::setDepthFunction(depthFunction);                  // restore depth test
+
+                // implementations can choose to optimize storage by not writing actual depth
+                // values and reconstructing them during sampling at the default sample positions
+                // these commands force correct per-sample depth to be written to the depth buffer
+                if(glEvaluateDepthValuesARB)
+                    glEvaluateDepthValuesARB();
+                else if(glResolveDepthValuesNV)
+                    glResolveDepthValuesNV();
             }
             else
             {
@@ -377,6 +427,7 @@ void Mosaiikki::drawEvent()
 
             // jitter camera if necessary
             scene->camera->setProjectionMatrix(matrices[currentFrame]);
+
             scene->camera->draw(scene->drawables);
 
             GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
@@ -399,8 +450,9 @@ void Mosaiikki::drawEvent()
                 .bindVelocity(velocityAttachment)
                 .setCurrentFrame(currentFrame)
                 .setCameraInfo(*scene->camera, scene->cameraNear, scene->cameraFar)
-                .setOptions(options.reconstruction);
-            reconstructionShader.draw();
+                .setOptions(options.reconstruction)
+                .setBuffer();
+            reconstructionShader.draw(fullscreenTriangle);
         }
 
         // housekeeping

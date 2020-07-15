@@ -21,9 +21,9 @@ using namespace Corrade;
 using namespace Feature;
 
 Scene::Scene(NoCreateT) :
-    coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate), velocityShader(NoCreate) { }
+    materialShader(NoCreate), velocityShader(NoCreate) { }
 
-Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreate), velocityShader(NoCreate)
+Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 {
     // Default material
 
@@ -48,23 +48,17 @@ Scene::Scene() : coloredMaterialShader(NoCreate), texturedMaterialShader(NoCreat
 
     // Shaders
 
-    coloredMaterialShader = Shaders::Phong(
-        Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor, lightPositions.size());
-    coloredMaterialShader.setLightPositions(lightPositions);
-    coloredMaterialShader.setLightColors(lightColors);
-    coloredMaterialShader.setLabel("Material shader (colored)");
-
-    texturedMaterialShader =
+    materialShader =
         Shaders::Phong(Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor |
                            Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
                            Shaders::Phong::Flag::NormalTexture,
                        lightPositions.size());
-    texturedMaterialShader.setLightPositions(lightPositions);
-    texturedMaterialShader.setLightColors(lightColors);
-    texturedMaterialShader.setLabel("Material shader (textured)");
+    materialShader.setLightPositions(lightPositions);
+    materialShader.setLightColors(lightColors);
+    materialShader.setLabel("Material shader (instanced, textured Phong)");
 
     velocityShader = VelocityShader(VelocityShader::Flag::InstancedTransformation);
-    velocityShader.setLabel("Velocity shader");
+    velocityShader.setLabel("Velocity shader (instanced)");
 
     // Objects
 
@@ -283,12 +277,12 @@ void Scene::addObject(Trade::AbstractImporter& importer,
             {
                 const Trade::PhongMaterialData& material = *materials[materialOffset + materialId];
                 const Trade::PhongMaterialData::Flags requiredFlags =
-                    TexturedDrawable3D::requiredMaterialFlags(texturedMaterialShader);
+                    TexturedDrawable3D::requiredMaterialFlags(materialShader);
                 if((material.flags() & requiredFlags) == requiredFlags)
                 {
                     TexturedDrawable3D* drawable =
                         new TexturedDrawable3D(object,
-                                               texturedMaterialShader,
+                                               materialShader,
                                                meshOffset + objectData->instance(),
                                                *meshes[meshOffset + objectData->instance()],
                                                *instanceBuffers[meshOffset + objectData->instance()],
@@ -303,7 +297,7 @@ void Scene::addObject(Trade::AbstractImporter& importer,
             {
                 TexturedDrawable3D* drawable =
                     new TexturedDrawable3D(object,
-                                           texturedMaterialShader,
+                                           materialShader,
                                            meshOffset + objectData->instance(),
                                            *meshes[meshOffset + objectData->instance()],
                                            *instanceBuffers[meshOffset + objectData->instance()],

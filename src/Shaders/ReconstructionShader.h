@@ -2,7 +2,6 @@
 
 #include <Magnum/GL/AbstractShaderProgram.h>
 #include <Magnum/GL/Version.h>
-#include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/Shaders/Generic.h>
 #include <Magnum/SceneGraph/Camera.h>
@@ -39,21 +38,17 @@ public:
     ReconstructionShader& setCurrentFrame(Magnum::Int currentFrame);
     ReconstructionShader& setCameraInfo(Magnum::SceneGraph::Camera3D& camera, float nearPlane, float farPlane);
     ReconstructionShader& setOptions(const Options::Reconstruction& options);
-
-    // normally you call mesh.draw(shader)
-    // but we supply our own mesh for a fullscreen pass
-    void draw();
+    // call this once before draw, after setting all the data, to transfer the uniform buffer
+    // the alternative would be to implement all 6 versions of AbstractShaderProgram::draw()
+    ReconstructionShader& setBuffer();
 
 private:
-    using Magnum::GL::AbstractShaderProgram::draw;
     using Magnum::GL::AbstractShaderProgram::drawTransformFeedback;
     using Magnum::GL::AbstractShaderProgram::dispatchCompute;
 
     static constexpr Magnum::GL::Version GLVersion = Magnum::GL::Version::GL300;
 
     Flags _flags;
-
-    Magnum::GL::Mesh triangle;
 
     enum : Magnum::Int
     {
@@ -62,7 +57,7 @@ private:
         VelocityTextureUnit = 2
     };
 
-    Magnum::Int optionsBlock;
+    Magnum::Int optionsBlock = -1;
     Magnum::GL::Buffer optionsBuffer;
 
     struct OptionsBufferData
@@ -76,12 +71,11 @@ private:
         GLuint cameraParametersChanged = false;
         GLint flags = 0;
         GLfloat depthTolerance = 0.01f;
-    };
-    OptionsBufferData optionsData;
+    } optionsData;
 
-    Magnum::Vector2i viewport;
-    Magnum::Matrix4 projection;
-    Magnum::Matrix4 prevViewProjection;
+    Magnum::Vector2i viewport = { 0, 0 };
+    Magnum::Matrix4 projection = Magnum::Matrix4(Magnum::Math::IdentityInit);
+    Magnum::Matrix4 prevViewProjection = Magnum::Matrix4(Magnum::Math::IdentityInit);
 };
 
 CORRADE_ENUMSET_OPERATORS(ReconstructionShader::Flags)

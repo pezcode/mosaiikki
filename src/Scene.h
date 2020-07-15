@@ -90,7 +90,6 @@ public:
     Corrade::Containers::Array<Magnum::Vector3> lightPositions;
     Corrade::Containers::Array<Magnum::Color4> lightColors;
 
-    Magnum::Shaders::Phong coloredMaterialShader;
-    Magnum::Shaders::Phong texturedMaterialShader;
+    Magnum::Shaders::Phong materialShader;
     VelocityShader velocityShader;
 };

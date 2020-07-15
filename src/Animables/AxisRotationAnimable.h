@@ -23,9 +23,7 @@ public:
         transformation(object),
         axis(axis.normalized()),
         velocity(velocity),
-        range(Magnum::Math::abs(range)),
-        distance(0.0f),
-        direction(1.0f)
+        range(Magnum::Math::abs(range))
     {
         setRepeated(true);
     }
@@ -44,7 +42,7 @@ private:
         Magnum::Rad diff = Magnum::Math::abs(distance + deltaDistance) - range;
         while(diff > Magnum::Rad(0.0f))
         {
-            direction *= -1.0f;
+            direction = -direction;
             deltaDistance += 2.0f * diff * direction;
             diff -= 2.0f * range;
         }
@@ -59,6 +57,6 @@ private:
     const Magnum::Rad velocity;
     const Magnum::Rad range;
 
-    Magnum::Rad distance;
-    float direction;
+    Magnum::Rad distance = Magnum::Rad(0.0f);
+    float direction = 1.0f;
 };

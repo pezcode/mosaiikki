@@ -4,29 +4,16 @@
 #include <Magnum/GL/Shader.h>
 #include <Magnum/GL/MultisampleTexture.h>
 #include <Magnum/GL/Texture.h>
-#include <Magnum/MeshTools/FullScreenTriangle.h>
 #include <Corrade/Containers/Reference.h>
 #include <Corrade/Utility/Resource.h>
 #include <Corrade/Utility/FormatStl.h>
 
 using namespace Magnum;
 
-ReconstructionShader::ReconstructionShader(NoCreateT) :
-    GL::AbstractShaderProgram(NoCreate),
-    triangle(NoCreate),
-    optionsBlock(-1),
-    optionsBuffer(NoCreate),
-    viewport(0, 0),
-    projection(Math::IdentityInit),
-    prevViewProjection(Math::IdentityInit)
-{
-}
+ReconstructionShader::ReconstructionShader(NoCreateT) : GL::AbstractShaderProgram(NoCreate), optionsBuffer(NoCreate) { }
 
-ReconstructionShader::ReconstructionShader(const Flags flags) :
-    _flags(flags), viewport(0, 0), projection(Math::IdentityInit), prevViewProjection(Math::IdentityInit)
+ReconstructionShader::ReconstructionShader(const Flags flags) : _flags(flags)
 {
-    triangle = MeshTools::fullScreenTriangle(GLVersion);
-
     GL::Shader vert(GLVersion, GL::Shader::Type::Vertex);
     GL::Shader frag(GLVersion, GL::Shader::Type::Fragment);
 
@@ -40,10 +27,9 @@ ReconstructionShader::ReconstructionShader(const Flags flags) :
     frag.addSource(rs.get("ReconstructionShader.frag"));
 
     // possibly parallel compilation
-    bool compiled = GL::Shader::compile({ vert, frag });
-    CORRADE_ASSERT(compiled, "Failed to compile ReconstructionShader", );
+    CORRADE_INTERNAL_ASSERT_OUTPUT(GL::Shader::compile({ vert, frag }));
     attachShaders({ vert, frag });
-    link();
+    CORRADE_INTERNAL_ASSERT_OUTPUT(link());
 
     setUniform(uniformLocation("color"), ColorTextureUnit);
     setUniform(uniformLocation("depth"), DepthTextureUnit);
@@ -121,11 +107,11 @@ ReconstructionShader& ReconstructionShader::setOptions(const Options::Reconstruc
     return *this;
 }
 
-void ReconstructionShader::draw()
+ReconstructionShader& ReconstructionShader::setBuffer()
 {
     // orphan the old buffer to prevent stalls
     optionsBuffer.setData({ optionsData }, GL::BufferUsage::DynamicDraw);
     //optionsBuffer.setSubData(0, { optionsData });
     optionsBuffer.bind(GL::Buffer::Target::Uniform, optionsBlock);
-    AbstractShaderProgram::draw(triangle);
+    return *this;
 }

@@ -7,14 +7,7 @@
 
 using namespace Magnum;
 
-VelocityShader::VelocityShader(NoCreateT) :
-    GL::AbstractShaderProgram(NoCreate),
-    transformationMatrixUniform(-1),
-    oldTransformationMatrixUniform(-1),
-    projectionMatrixUniform(-1),
-    oldProjectionMatrixUniform(-1)
-{
-}
+VelocityShader::VelocityShader(NoCreateT) : GL::AbstractShaderProgram(NoCreate) { }
 
 VelocityShader::VelocityShader(const Flags flags) : _flags(flags)
 {
@@ -35,17 +28,12 @@ VelocityShader::VelocityShader(const Flags flags) : _flags(flags)
     frag.addSource(Utility::formatString("#define VELOCITY_OUTPUT_ATTRIBUTE_LOCATION {}\n", VelocityOutput));
     frag.addSource(rs.get("VelocityShader.frag"));
 
-    bool compiled = GL::Shader::compile({ vert, frag });
-    CORRADE_ASSERT(compiled, "Failed to compile VelocityShader", );
+    CORRADE_INTERNAL_ASSERT_OUTPUT(GL::Shader::compile({ vert, frag }));
     attachShaders({ vert, frag });
-    link();
+    CORRADE_INTERNAL_ASSERT_OUTPUT(link());
 
     transformationMatrixUniform = uniformLocation("transformationMatrix");
     oldTransformationMatrixUniform = uniformLocation("oldTransformationMatrix");
-
-    setUniform(transformationMatrixUniform, Matrix4(Math::IdentityInit));
-    setUniform(oldTransformationMatrixUniform, Matrix4(Math::IdentityInit));
-
     projectionMatrixUniform = uniformLocation("projectionMatrix");
     oldProjectionMatrixUniform = uniformLocation("oldProjectionMatrix");
 }
