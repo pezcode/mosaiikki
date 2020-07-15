@@ -18,7 +18,7 @@ public:
     explicit AxisRotationAnimable(Object3D& object,
                                   const Magnum::Vector3& axis,
                                   Magnum::Rad velocity, /* radians per second */
-                                  Magnum::Rad range = Magnum::Math::Constants<Magnum::Rad>::inf() /* radians */) :
+                                  Magnum::Rad range = Magnum::Rad(Magnum::Constants::inf()) /* radians */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
@@ -26,16 +26,6 @@ public:
         range(Magnum::Math::abs(range)),
         distance(0.0f),
         direction(1.0f)
-    {
-        setRepeated(true);
-    }
-
-    explicit AxisRotationAnimable(const AxisRotationAnimable& other, Object3D& object) :
-        Magnum::SceneGraph::Animable3D(object),
-        transformation(object),
-        axis(other.axis),
-        velocity(other.velocity),
-        distance(other.distance)
     {
         setRepeated(true);
     }
@@ -66,8 +56,8 @@ private:
     Magnum::SceneGraph::AbstractTranslationRotation3D& transformation;
 
     const Magnum::Vector3 axis;
-    const Magnum::Rad range;
     const Magnum::Rad velocity;
+    const Magnum::Rad range;
 
     Magnum::Rad distance;
     float direction;

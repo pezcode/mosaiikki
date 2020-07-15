@@ -61,11 +61,6 @@ public:
         return _mesh;
     }
 
-    void setShininess(float newShininess)
-    {
-        shininess = newShininess;
-    }
-
     InstanceDrawable<Transform>& addInstance(Object3D& object)
     {
         InstanceDrawable<Transform>* instance = new InstanceDrawable<Transform>(object, instanceData);

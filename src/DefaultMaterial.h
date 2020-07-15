@@ -61,6 +61,6 @@ private:
         texture.setStorage(1, Magnum::GL::TextureFormat::RGBA8, size);
         texture.setSubImage(0, { 0, 0 }, image);
 
-        return std::move(texture);
+        return texture;
     }
 };

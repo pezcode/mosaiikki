@@ -18,7 +18,7 @@ public:
     explicit AxisTranslationAnimable(Object3D& object,
                                      const Magnum::Vector3& axis,
                                      float velocity, /* units per second */
-                                     float range = Magnum::Constants::inf<float>() /* units */) :
+                                     float range = Magnum::Constants::inf() /* units */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
@@ -26,18 +26,6 @@ public:
         range(Magnum::Math::abs(range)),
         distance(0.0f),
         direction(1.0f)
-    {
-        setRepeated(true);
-    }
-
-    explicit AxisTranslationAnimable(const AxisTranslationAnimable& other, Object3D& object) :
-        Magnum::SceneGraph::Animable3D(object),
-        transformation(object),
-        axis(other.axis),
-        range(other.range),
-        velocity(other.velocity),
-        distance(other.distance),
-        direction(other.direction)
     {
         setRepeated(true);
     }
@@ -68,8 +56,8 @@ private:
     Magnum::SceneGraph::AbstractTranslation3D& transformation;
 
     const Magnum::Vector3 axis;
-    const float range;
     const float velocity;
+    const float range;
 
     float distance;
     float direction;
