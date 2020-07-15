@@ -15,8 +15,6 @@ set(SOURCES
     DefaultMaterial.h
 	Feature.h
 	Options.h
-	MagnumShadersSampleInterpolationOverride.h
-	MagnumShadersSampleInterpolationOverride.cpp
 	Shaders/VelocityShader.h
 	Shaders/VelocityShader.cpp
 	Shaders/DepthBlitShader.h

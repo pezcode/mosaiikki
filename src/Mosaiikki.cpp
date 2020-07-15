@@ -2,7 +2,6 @@
 
 #include "Scene.h"
 #include "Feature.h"
-#include "MagnumShadersSampleInterpolationOverride.h"
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Context.h>
 #include <Magnum/GL/Extensions.h>
@@ -135,21 +134,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // Scene
 
-    {
-        // patch the built-in Phong shader to use sample interpolation
-        // TODO is this actually required?
-        // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_sample_shading.txt:
-        // "When the sample shading fraction is 1.0, a separate set of colors and
-        // other associated data are evaluated for each sample, each set of values
-        // are evaluated at the sample location."
-        // https://www.oreilly.com/library/view/opengl-programming-guide/9780132748445/ch04lev2sec9.html:
-        // "If you can't modify a fragment shader to use the sample keyword [...], you can have OpenGL do
-        // sample shading by passing GL_SAMPLE_SHADING to glEnable(). This will cause unmodified fragment
-        // shader in variables to be interpolated to sample locations automatically."
-        MagnumShadersSampleInterpolationOverride shaderOverride({ "Phong.vert", "Phong.frag" });
-
-        scene.emplace();
-    }
+    scene.emplace();
 
     for(Containers::Pointer<GL::Texture2D>& texture : scene->textures)
     {
