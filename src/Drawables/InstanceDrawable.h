@@ -55,7 +55,7 @@ protected:
                                          { transformationMatrix, transformationMatrix.normalMatrix(), color });
     }
 
-    Magnum::Color4 color = { 1.0f, 1.0f, 1.0f };
+    Magnum::Color4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
     InstanceArray& instanceData;
 };

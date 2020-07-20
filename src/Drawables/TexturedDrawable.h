@@ -14,6 +14,7 @@
 #include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/Containers/Pointer.h>
 #include <Corrade/Utility/Assert.h>
+#include <algorithm>
 
 template<typename Transform>
 class TexturedDrawable : public Magnum::SceneGraph::Drawable3D
@@ -56,11 +57,6 @@ public:
         return _meshId;
     }
 
-    Magnum::GL::Mesh& mesh()
-    {
-        return _mesh;
-    }
-
     InstanceDrawable<Transform>& addInstance(Object3D& object)
     {
         InstanceDrawable<Transform>* instance = new InstanceDrawable<Transform>(object, instanceData);
@@ -90,27 +86,45 @@ public:
 private:
     virtual void draw(const Magnum::Matrix4& /*transformationMatrix*/, Magnum::SceneGraph::Camera3D& camera) override
     {
-        // can't access templated base class's members without this->
-
-        if(this->instanceDrawables.isEmpty())
+        if(instanceDrawables.isEmpty())
             return;
 
-        if(ambientTexture || diffuseTexture || specularTexture || normalTexture)
-            this->shader.bindTextures(ambientTexture, diffuseTexture, specularTexture, normalTexture);
+        /*
+        // sort objects back to front for correct alpha blending
+        // not needed currently since we add instanced in our scene in the correct order and the camera position is static
+        std::vector<std::pair<std::reference_wrapper<SceneGraph::Drawable3D>, Matrix4>> drawableTransformations =
+            camera.drawableTransformations(instanceDrawables);
+        
+        std::sort(drawableTransformations.begin(),
+                  drawableTransformations.end(),
+                  [](const std::pair<std::reference_wrapper<SceneGraph::Drawable3D>, Matrix4>& a,
+                     const std::pair<std::reference_wrapper<SceneGraph::Drawable3D>, Matrix4>& b) {
+                      return a.second.translation().z() < b.second.translation().z();
+                  });
+        */
 
-        this->shader.setShininess(material.shininess())
-            .setAmbientColor(material.ambientColor())
-            .setDiffuseColor(material.diffuseColor())
-            .setSpecularColor(material.specularColor())
+        Corrade::Containers::arrayResize(instanceData, 0);
+        camera.draw(instanceDrawables /*drawableTransformations*/);
+
+        instanceBuffer.setData(instanceData, Magnum::GL::BufferUsage::DynamicDraw);
+        _mesh.setInstanceCount(instanceData.size());
+
+        if(ambientTexture || diffuseTexture || specularTexture || normalTexture)
+            shader.bindTextures(ambientTexture, diffuseTexture, specularTexture, normalTexture);
+
+        shader
+            .setShininess(material.shininess())
+            // make sure ambient alpha is 1.0 since it gets multiplied with instanced vertex color
+            .setAmbientColor({ material.ambientColor().rgb(), 1.0f })
+            // diffuse and specular colors have no alpha so when the light influences are added up, alpha is unaffected
+            // this isn't ideal since specular highlights should increase opacity, but with the built-in Phong shader
+            // the alpha added from a single strong light makes the entire object completely opaque
+            // TODO maybe this is fixable with some light value tweaks
+            .setDiffuseColor({ material.diffuseColor().rgb(), 0.0f })
+            .setSpecularColor({ material.specularColor().rgb(), 0.0f })
             .setProjectionMatrix(camera.projectionMatrix());
 
-        Corrade::Containers::arrayResize(this->instanceData, 0);
-        camera.draw(this->instanceDrawables);
-
-        this->instanceBuffer.setData(this->instanceData, Magnum::GL::BufferUsage::DynamicDraw);
-        this->_mesh.setInstanceCount(this->instanceData.size());
-
-        this->shader.draw(this->_mesh);
+        shader.draw(_mesh);
     }
 
     Magnum::Shaders::Phong& shader;

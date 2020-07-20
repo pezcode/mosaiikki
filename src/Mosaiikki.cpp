@@ -255,8 +255,7 @@ void Mosaiikki::setSamplePositions()
     if(!(ext_arb || ext_nv || ext_amd))
     {
         // none of the extensions are supported (also happens in RenderDoc which force-disables it)
-        // warn here instead of aborting because you might have the correct sample positions anyway
-        // and we check below
+        // warn here instead of aborting because you might have the correct sample positions anyway (which we check below)
         // the sample positions we request seem to be the default on Nvidia GPUs
         Warning() << "No extension for setting sample positions found!";
     }
@@ -307,7 +306,7 @@ void Mosaiikki::setSamplePositions()
 
         // positions can be quantized, so only do a rough comparison
         // we can query the quantization amount (SUBSAMPLE_DISTANCE_AMD and SAMPLE_LOCATION_SUBPIXEL_BITS_NV)
-        // but we're interested in acceptable absolute error
+        // but we're only interested in an acceptable absolute error anyway
         constexpr float allowedError = 1.0f / 8.0f;
         if((Math::abs(position - samplePositions[i]) > Vector2(allowedError)).any())
         {
@@ -338,12 +337,17 @@ void Mosaiikki::drawEvent()
         GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
         GL::Renderer::setDepthFunction(depthFunction);
 
-        const Matrix4 unjitteredProjection = scene->camera->projectionMatrix();
+        GL::Renderer::disable(GL::Renderer::Feature::Blending);
+        GL::Renderer::setBlendEquation(GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add);
+        GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
+                                       GL::Renderer::BlendFunction::OneMinusSourceAlpha);
 
         static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
         Array<FRAMES, Matrix4> matrices;
+
         // jitter viewport half a pixel to the right = one pixel in the full-res framebuffer
         // = width of NDC divided by full-res pixel count
+        const Matrix4 unjitteredProjection = scene->camera->projectionMatrix();
         const float offset = 2.0f / scene->camera->viewport().x();
         matrices[JITTERED_FRAME] = Matrix4::translation(Vector3::xAxis(offset)) * unjitteredProjection;
         matrices[1 - JITTERED_FRAME] = unjitteredProjection;
@@ -358,12 +362,12 @@ void Mosaiikki::drawEvent()
             velocityFramebuffer.clearColor(0, 0_rgbf);
             velocityFramebuffer.clearDepth(1.0f);
 
-            // dynamic object velocity
+            // dynamic objects only
             // camera velocity for static objects is calculated with reprojection in the checkerboard resolve pass
             if(scene->meshAnimables.runningCount() > 0)
             {
                 // offset depth for the depth blit, otherwise the depth test might fail in the quarter-res pass
-                // not entirely sure what causes this, could be floating point inaccuracy
+                // not entirely sure what causes this, could be floating point inaccuracy?
                 // slope bias allows an offset based on triangle depth gradient,
                 // without it we'd need to use a larger constant bias and pray it works
                 GL::Renderer::enable(GL::Renderer::Feature::PolygonOffsetFill);
@@ -377,6 +381,16 @@ void Mosaiikki::drawEvent()
 
                 scene->camera->draw(scene->velocityDrawables);
 
+                // transparent objects shouldn't write to the depth buffer if we blit and reuse it in the quarter-res scene pass
+                // TODO without depth writes they now have to be properly sorted back to front
+                // we kinda do this during scene creation, which works because the camera position is static
+                // for the opaque velocity drawables, we could sort front to back to reduce overdraw
+                // should we do the same for the normal renderables? it'll be a bit annoying to duplicate the
+                // Renderables added in loadScene :<
+                GL::Renderer::setDepthMask(GL_FALSE);
+                scene->camera->draw(scene->transparentVelocityDrawables);
+                GL::Renderer::setDepthMask(GL_TRUE);
+
                 GL::Renderer::disable(GL::Renderer::Feature::PolygonOffsetFill);
             }
         }
@@ -389,9 +403,6 @@ void Mosaiikki::drawEvent()
             GL::Framebuffer& framebuffer = framebuffers[currentFrame];
             framebuffer.bind();
 
-            const Color4 clearColor = Color4::fromSrgb(0x772953_rgbf); // Ubuntu Canonical aubergine
-            framebuffer.clearColor(0, clearColor);
-
             // run fragment shader for each sample
             GL::Renderer::enable(GL::Renderer::Feature::SampleShading);
             GL::Renderer::setMinSampleShading(1.0f);
@@ -402,15 +413,15 @@ void Mosaiikki::drawEvent()
                 GL::DebugGroup group2(GL::DebugGroup::Source::Application, 0, "Velocity depth blit");
 
                 GL::Renderer::setDepthFunction(
-                    GL::Renderer::DepthFunction::Always); // always pass depth test for fullscreen triangle
+                    GL::Renderer::DepthFunction::Always); // fullscreen pass, always pass depth test
                 GL::Renderer::setColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); // disable color writing
 
                 // blit to quarter res with max filter
                 depthBlitShader.bindDepth(velocityDepthAttachment);
                 depthBlitShader.draw(fullscreenTriangle);
 
-                GL::Renderer::setColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); // enable color writing
-                GL::Renderer::setDepthFunction(depthFunction);                  // restore depth test
+                GL::Renderer::setColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                GL::Renderer::setDepthFunction(depthFunction);
 
                 // implementations can choose to optimize storage by not writing actual depth
                 // values and reconstructing them during sampling at the default sample positions
@@ -425,10 +436,17 @@ void Mosaiikki::drawEvent()
                 framebuffer.clearDepth(1.0f);
             }
 
-            // jitter camera if necessary
+            const Color4 clearColor = Color4::fromSrgb(0x772953_rgbf); // Ubuntu Canonical aubergine
+            framebuffer.clearColor(0, clearColor);
+
+            // use jittered camera if necessary
             scene->camera->setProjectionMatrix(matrices[currentFrame]);
 
+            GL::Renderer::enable(GL::Renderer::Feature::Blending);
+
             scene->camera->draw(scene->drawables);
+
+            GL::Renderer::disable(GL::Renderer::Feature::Blending);
 
             GL::Renderer::disable(GL::Renderer::Feature::SampleShading);
         }

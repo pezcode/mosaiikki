@@ -30,11 +30,6 @@ public:
         return _meshId;
     }
 
-    Magnum::GL::Mesh& mesh()
-    {
-        return _mesh;
-    }
-
     VelocityInstanceDrawable<Transform>& addInstance(Object3D& object)
     {
         VelocityInstanceDrawable<Transform>* instance = new VelocityInstanceDrawable<Transform>(object, instanceData);

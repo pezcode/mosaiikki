@@ -12,6 +12,8 @@
 #include <Magnum/Math/FunctionsBatch.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
+#include <Corrade/Utility/DebugStl.h>
+#include <Corrade/Containers/Optional.h>
 #include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/PluginManager/Manager.h>
 
@@ -20,8 +22,7 @@ using namespace Magnum::Math::Literals;
 using namespace Corrade;
 using namespace Feature;
 
-Scene::Scene(NoCreateT) :
-    materialShader(NoCreate), velocityShader(NoCreate) { }
+Scene::Scene(NoCreateT) : materialShader(NoCreate), velocityShader(NoCreate) { }
 
 Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 {
@@ -48,11 +49,11 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 
     // Shaders
 
-    materialShader =
-        Shaders::Phong(Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor |
-                           Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
-                           Shaders::Phong::Flag::NormalTexture,
-                       lightPositions.size());
+    // vertex color is coming from the instance buffer attribute
+    materialShader = Shaders::Phong(Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor |
+                                        Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
+                                        Shaders::Phong::Flag::NormalTexture,
+                                    lightPositions.size());
     materialShader.setLightPositions(lightPositions);
     materialShader.setLightColors(lightColors);
     materialShader.setLabel("Material shader (instanced, textured Phong)");
@@ -62,8 +63,7 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 
     // Objects
 
-    std::string mesh = "resources/models/Suzanne.gltf";
-    mesh = "resources/models/Avocado/Avocado.gltf";
+    std::string mesh = "resources/models/Avocado/Avocado.gltf";
 
     Object3D& object = root.addChild<Object3D>();
     object.translate({ 0.0f, 0.0f, -5.0f });
@@ -85,28 +85,43 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
         Object3D& drawableObject = static_cast<Object3D&>(drawable->object());
 
         size_t id = drawable->meshId();
+
         VelocityDrawable3D* velocityDrawable = new VelocityDrawable3D(
             drawableObject, velocityShader, id, *velocityMeshes[id], *velocityInstanceBuffers[id]);
         velocityDrawables.add(*velocityDrawable);
 
-        for(size_t i = 0; i < objectGridSize; i++)
+        VelocityDrawable3D* transparentVelocityDrawable = new VelocityDrawable3D(
+            drawableObject, velocityShader, id, *velocityMeshes[id], *velocityInstanceBuffers[id]);
+        transparentVelocityDrawables.add(*transparentVelocityDrawable);
+
+        for(size_t z = 0; z < objectGridSize; z++)
         {
-            for(size_t j = 0; j < objectGridSize; j++)
+            for(size_t y = 0; y < objectGridSize; y++)
             {
-                for(size_t k = 0; k < objectGridSize; k++)
+                for(size_t x = 0; x < objectGridSize; x++)
                 {
                     Object3D& instance = drawableObject.addChild<Object3D>();
 
                     Matrix3 toLocal = Matrix3(instance.absoluteTransformationMatrix()).inverted();
 
-                    Vector3 translation = (Vector3(i, j, -float(k)) - center) * 4.0f;
+                    // add instances back to front for alpha blending
+                    Vector3 translation = (Vector3(x, y, -float(objectGridSize - z - 1)) - center) * 4.0f;
                     instance.translate(toLocal * translation);
 
                     InstanceDrawable3D& instanceDrawable = drawable->addInstance(instance);
-                    instanceDrawable.setColor(Color4(i, j, k) * 1.0f / objectGridSize);
+
+                    bool transparent = z == (objectGridSize - 1);
+                    Color3 color = (Color3(x, y, z) + Color3(1.0f)) / objectGridSize; // +1 to avoid completely black objects
+                    float alpha = transparent ? 0.5f : 1.0f;
+                    instanceDrawable.setColor(Color4(color, alpha));
 
                     Vector3 localX = toLocal * Vector3::xAxis();
                     Vector3 localY = toLocal * Vector3::yAxis();
+
+                    if(transparent)
+                        transparentVelocityDrawable->addInstance(instance);
+                    else
+                        velocityDrawable->addInstance(instance);
 
                     SceneGraph::Animable3D* translationAnimable =
                         new TranslationAnimable3D(instance, localX, 5.5f * localX.length(), 3.0f * localX.length());
@@ -117,8 +132,6 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 
                     translationAnimable->setState(SceneGraph::AnimationState::Running);
                     rotationAnimable->setState(SceneGraph::AnimationState::Running);
-
-                    velocityDrawable->addInstance(instance);
                 }
             }
         }
@@ -163,8 +176,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
     {
         Containers::Optional<Trade::MeshData> data = importer->mesh(i);
         if(data && data->hasAttribute(Trade::MeshAttribute::Position) &&
-           data->hasAttribute(Trade::MeshAttribute::Normal) &&
-           data->hasAttribute(Trade::MeshAttribute::Tangent) &&
+           data->hasAttribute(Trade::MeshAttribute::Normal) && data->hasAttribute(Trade::MeshAttribute::Tangent) &&
            data->hasAttribute(Trade::MeshAttribute::TextureCoordinates) &&
            GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
         {
@@ -187,6 +199,9 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
             velocityInstanceBuffers[meshOffset + i].emplace(
                 VelocityInstanceDrawable3D::addInstancedBuffer(*velocityMeshes[i]));
         }
+        else
+            Warning(Warning::Flag::NoSpace)
+                << "Skipping mesh " << i << " (must be a triangle mesh with normals, tangents and UV coordinates)";
     }
 
     if(bounds)
@@ -204,6 +219,8 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
         {
             materials[materialOffset + i].emplace(std::move(static_cast<Trade::PhongMaterialData&>(*data)));
         }
+        else
+            Warning(Warning::Flag::NoSpace) << "Skipping material " << i << " (not a Phong-compatible material)";
     }
 
     // load textures
@@ -226,9 +243,13 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
                         format = GL::TextureFormat::RGB8;
                         break;
                     case PixelFormat::RGBA8Unorm:
-                        format = GL::TextureFormat::RGB8;
+                        format = GL::TextureFormat::RGBA8;
                         break;
                     default:
+                        Warning(Warning::Flag::NoSpace)
+                            << "Skipping texture: "
+                            << i //importer->textureName(i) <- TODO, this is empty, how to get the texture path?
+                            << " (unsupported format " << imageData->format() << ")";
                         continue;
                 }
                 GL::Texture2D texture;

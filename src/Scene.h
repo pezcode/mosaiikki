@@ -19,7 +19,6 @@
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Texture.h>
-#include <Corrade/Containers/Optional.h>
 #include <Corrade/Containers/Pointer.h>
 #include <Corrade/Containers/Array.h>
 
@@ -84,7 +83,11 @@ public:
     Magnum::SceneGraph::AnimableGroup3D cameraAnimables;
 
     Magnum::SceneGraph::DrawableGroup3D drawables;
-    Magnum::SceneGraph::DrawableGroup3D velocityDrawables; // moving objects that contribute to the velocity buffer
+    // moving objects that contribute to the velocity buffer
+    Magnum::SceneGraph::DrawableGroup3D velocityDrawables;
+    // same as above, but for transparent meshes that don't write to the depth buffer
+    // only necessary if we reuse the velocity depth buffer in the quarter-res scene pass
+    Magnum::SceneGraph::DrawableGroup3D transparentVelocityDrawables;
 
     static constexpr size_t objectGridSize = 6;
     Corrade::Containers::Array<Magnum::Vector3> lightPositions;
