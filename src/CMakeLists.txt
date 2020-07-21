@@ -92,14 +92,19 @@ if(CORRADE_TARGET_MSVC)
     )
 endif()
 
-# copy resources folder
-file(COPY ${CMAKE_SOURCE_DIR}/resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# link/copy resources folder to binary dir
+# this is the default debugging working directory for MSVC
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.14.0")
+    file(CREATE_LINK "${PROJECT_SOURCE_DIR}/resources" "${CMAKE_CURRENT_BINARY_DIR}/resources" COPY_ON_ERROR SYMBOLIC)
+else()
+    file(COPY "${PROJECT_SOURCE_DIR}/resources" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+endif()
 
 # install binary + resources
-install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION ${MAGNUM_DEPLOY_PREFIX})
+install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION "${MAGNUM_DEPLOY_PREFIX}")
 install(DIRECTORY
-    ${CMAKE_CURRENT_BINARY_DIR}/resources
-    DESTINATION ${MAGNUM_DEPLOY_PREFIX})
+    "${PROJECT_SOURCE_DIR}/resources"
+    DESTINATION "${MAGNUM_DEPLOY_PREFIX}")
 
 # Make the executable a default target to build & run in Visual Studio
-set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CMAKE_PROJECT_NAME})
+set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT ${CMAKE_PROJECT_NAME})

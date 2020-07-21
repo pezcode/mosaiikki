@@ -1,12 +1,15 @@
-/build*/
-/images/
+/build*/*
+/images/*
 
 # Large files
-/resources/models/
+/resources/models/*
 
 # Graphic debuggers
 /*.cap
-/Nsight
+/Nsight/*
+
+/.vscode/*
+!/.vscode/launch.json
 
 # Prerequisites
 *.d
