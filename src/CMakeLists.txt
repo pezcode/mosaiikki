@@ -64,7 +64,7 @@ corrade_add_resource(RESOURCES "${PROJECT_SOURCE_DIR}/resources/resources.conf")
 corrade_add_resource(SHADER_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/resources.conf")
 
 add_executable(${CMAKE_PROJECT_NAME} WIN32 ${SOURCES} ${SHADERS} ${RESOURCES} ${SHADER_RESOURCES})
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     Corrade::Main

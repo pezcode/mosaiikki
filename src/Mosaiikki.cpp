@@ -81,22 +81,11 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
 #ifdef CORRADE_IS_DEBUG_BUILD
     GL::Renderer::enable(GL::Renderer::Feature::DebugOutput);
-    // redirect debug messages to Corrade Debug output
-    // the callback can be called on a different thread which ignores thread-local Debug overrides
-    // so we pass the log file ostream directly to the default callback implementation
-    // this is a bit of a hack, since the default implementation is only exposed for testing
-    //GL::DebugOutput::setDefaultCallback();
-    GL::DebugOutput::setCallback(
-        [](GL::DebugOutput::Source source,
-           GL::DebugOutput::Type type,
-           UnsignedInt id,
-           GL::DebugOutput::Severity severity,
-           const std::string& string,
-           const void* ostream) {
-            GL::Implementation::defaultDebugCallback(source, type, id, severity, string, (std::ostream*)(ostream));
-        },
-        &logFile);
-
+    // output debug messages on the same thread as the GL commands
+    // this fixes issues with Corrade::Debug having per-thread output streams
+    GL::Renderer::enable(GL::Renderer::Feature::DebugOutputSynchronous);
+    // redirect debug messages to Corrade::Debug
+    GL::DebugOutput::setDefaultCallback();
     // disable unimportant output
     // markers and groups are only used for RenderDoc
     GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Application, GL::DebugOutput::Type::Marker, false);
