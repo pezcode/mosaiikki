@@ -11,7 +11,7 @@
             "program": "${command:cmake.launchTargetPath}",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${command:cmake.buildDirectory}/src",
+            "cwd": "${command:cmake.buildDirectory}",
             "environment": [],
             "externalConsole": false
         }

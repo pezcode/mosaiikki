@@ -45,7 +45,7 @@ void ImGuiApplication::init()
     ImGui::CreateContext();
     // we can't call an overridden method from the base class constructor.
     // any configuration in the derived class must happen after the base
-    // class constructor. that means the default font atlas is created
+    // class constructor. that means the (default) font atlas is created
     // and uploaded, and then later created again after setFont.
     // not a massive deal, but one workaround would be creating the
     // implementation instance in the first drawEvent.
@@ -91,6 +91,12 @@ void ImGuiApplication::drawEvent()
 void ImGuiApplication::viewportEvent(Magnum::Platform::Application::ViewportEvent& event)
 {
     GL::defaultFramebuffer.setViewport({ { 0, 0 }, event.framebufferSize() });
+
+    // TODO
+    // if the pixel density changed, we should recreate the fonts
+    // need to store font data internally for this to work
+    // or get the info from a virtual function callback
+
     imgui.relayout(uiSize(), event.windowSize(), event.framebufferSize());
 }
 

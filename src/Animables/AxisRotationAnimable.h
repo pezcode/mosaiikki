@@ -58,5 +58,5 @@ private:
     const Magnum::Rad range;
 
     Magnum::Rad distance = Magnum::Rad(0.0f);
-    float direction = 1.0f;
+    Magnum::Float direction = 1.0f;
 };

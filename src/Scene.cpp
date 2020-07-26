@@ -22,7 +22,7 @@ using namespace Magnum::Math::Literals;
 using namespace Corrade;
 using namespace Feature;
 
-Scene::Scene(NoCreateT) : materialShader(NoCreate), velocityShader(NoCreate) { }
+Scene::Scene(NoCreateT) : materialShader(NoCreate), velocityShader(NoCreate) {}
 
 Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 {
@@ -111,7 +111,8 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
                     InstanceDrawable3D& instanceDrawable = drawable->addInstance(instance);
 
                     bool transparent = z == (objectGridSize - 1);
-                    Color3 color = (Color3(x, y, z) + Color3(1.0f)) / objectGridSize; // +1 to avoid completely black objects
+                    Color3 color =
+                        (Color3(x, y, z) + Color3(1.0f)) / objectGridSize; // +1 to avoid completely black objects
                     float alpha = transparent ? 0.5f : 1.0f;
                     instanceDrawable.setColor(Color4(color, alpha));
 

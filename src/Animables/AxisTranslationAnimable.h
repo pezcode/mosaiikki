@@ -17,8 +17,8 @@ public:
 
     explicit AxisTranslationAnimable(Object3D& object,
                                      const Magnum::Vector3& axis,
-                                     float velocity, /* units per second */
-                                     float range = Magnum::Constants::inf() /* units */) :
+                                     Magnum::Float velocity, /* units per second */
+                                     Magnum::Float range = Magnum::Constants::inf() /* units */) :
         Magnum::SceneGraph::Animable3D(object),
         transformation(object),
         axis(axis.normalized()),
@@ -38,8 +38,8 @@ private:
 
     virtual void animationStep(Magnum::Float /*absolute*/, Magnum::Float delta) override
     {
-        float deltaDistance = direction * velocity * delta;
-        float diff = Magnum::Math::abs(distance + deltaDistance) - range;
+        Magnum::Float deltaDistance = direction * velocity * delta;
+        Magnum::Float diff = Magnum::Math::abs(distance + deltaDistance) - range;
         while(diff > 0.0f)
         {
             // handle reflected distance, important for huge deltas
@@ -54,9 +54,9 @@ private:
     Magnum::SceneGraph::AbstractTranslation3D& transformation;
 
     const Magnum::Vector3 axis;
-    const float velocity;
-    const float range;
+    const Magnum::Float velocity;
+    const Magnum::Float range;
 
-    float distance = 0.0f;
-    float direction = 1.0f;
+    Magnum::Float distance = 0.0f;
+    Magnum::Float direction = 1.0f;
 };
