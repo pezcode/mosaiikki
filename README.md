@@ -42,7 +42,6 @@ This implementation is loosely based on the Intel D3D11 forward shading example,
 4. **Reconstruction pass**: Combine previous and current quarter-res
     - Fullscreen pass, one thread for each full-res fragment
     - See [Reconstruction shader](#Reconstruction-shader) for more details
-    
 
 ## Implementation
 
@@ -105,6 +104,33 @@ Since screen-space derivatives in the fragment shader are calculated at half-res
 - [Rendering Rainbow Six Siege](https://twvideo01.ubm-us.net/o1/vault/gdc2016/Presentations/El_Mansouri_Jalal_Rendering_Rainbow_Six.pdf) (Jalal El Mansouri, 2016)
 - [4K Checkerboard in Battlefield 1 and Mass Effect](http://frostbite-wp-prd.s3.amazonaws.com/wp-content/uploads/2017/03/04173623/GDC-Checkerboard.compressed.pdf) (Graham Wihlidal, 2017)
 - [Dynamic Temporal Antialiasing and Upsampling in Call of Duty](https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf) (Jorge Jimenez, 2020)
+
+## Compilation
+
+[CMake](https://cmake.org/) (>= 3.4) is required for building.
+
+1. Clone repository:
+
+   ```bash
+   git clone --recursive https://github.com/pezcode/mosaiikki.git
+   cd mosaiikki
+   ```
+
+2. Generate project files:
+
+   ```bash
+   mkdir build
+   cd build
+   # e.g. VS 2019, compile for x64 platform
+   cmake -G "Visual Studio 16 2019" -A x64 ..
+   cd ..
+   ```
+
+3. Build. Open the project files with your IDE/build tool, or use CMake:
+
+   ```bash
+   cmake --build build/ --parallel --config Release
+   ```
 
 ## Libraries
 
