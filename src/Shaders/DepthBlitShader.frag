@@ -8,11 +8,11 @@ uniform sampler2D depth; // full-resolution velocity pass depth
 
 void main()
 {
-	ivec2 halfCoords = ivec2(floor(gl_FragCoord.xy));
+    ivec2 halfCoords = ivec2(floor(gl_FragCoord.xy));
     ivec2 coords = halfCoords << 1;
 
-	// let each sample copy the depth value from the full screen pass
-	// this works because we know exactly which pixels the samples fall on
-	// requires per-sample shading, which is forced on by using gl_SampleID
-	gl_FragDepth = texelFetch(depth, coords + ivec2(1 - gl_SampleID), 0).x;
+    // let each sample copy the depth value from the full screen pass
+    // this works because we know exactly which pixels the samples fall on
+    // requires per-sample shading, which is forced on by using gl_SampleID
+    gl_FragDepth = texelFetch(depth, coords + ivec2(1 - gl_SampleID), 0).x;
 }

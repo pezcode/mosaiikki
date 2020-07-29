@@ -20,17 +20,17 @@ out vec4 oldClipPos;
 
 void main()
 {
-	clipPos = projectionMatrix * transformationMatrix *
-		#ifdef INSTANCED_TRANSFORMATION
-		instancedTransformationMatrix *
-		#endif
-		position;
+    clipPos = projectionMatrix * transformationMatrix *
+        #ifdef INSTANCED_TRANSFORMATION
+        instancedTransformationMatrix *
+        #endif
+        position;
 
-	oldClipPos = oldProjectionMatrix * oldTransformationMatrix *
-		#ifdef INSTANCED_TRANSFORMATION
-		instancedOldTransformationMatrix *
-		#endif
-		position;
+    oldClipPos = oldProjectionMatrix * oldTransformationMatrix *
+        #ifdef INSTANCED_TRANSFORMATION
+        instancedOldTransformationMatrix *
+        #endif
+        position;
 
-	gl_Position = clipPos;
+    gl_Position = clipPos;
 }
