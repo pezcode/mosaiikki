@@ -41,10 +41,11 @@ public:
     Corrade::Containers::Array<Magnum::GL::Texture2D> createTextures(Magnum::Vector2i size = { 1, 1 })
     {
         Corrade::Containers::Array<Magnum::GL::Texture2D> textures(Corrade::Containers::NoInit, TextureCount);
-        textures[AmbientTextureId] = createTexture(Magnum::Color4(1.0f), size);
-        textures[DiffuseTextureId] = createTexture(Magnum::Color4(1.0f), size);
-        textures[SpecularTextureId] = createTexture(Magnum::Color4(1.0f), size);
-        textures[NormalTextureId] = createTexture(Magnum::Color4(0.5f, 0.5f, 1.0f), size);
+        // NoInit requires placement new
+        new(&textures[AmbientTextureId]) Magnum::GL::Texture2D(createTexture(Magnum::Color4(1.0f), size));
+        new(&textures[DiffuseTextureId]) Magnum::GL::Texture2D(createTexture(Magnum::Color4(1.0f), size));
+        new(&textures[SpecularTextureId]) Magnum::GL::Texture2D(createTexture(Magnum::Color4(1.0f), size));
+        new(&textures[NormalTextureId]) Magnum::GL::Texture2D(createTexture(Magnum::Color4(0.5f, 0.5f, 1.0f), size));
 
         return textures;
     };
