@@ -50,6 +50,9 @@ public:
     //Scene(Scene&&) noexcept = default;
     //Scene& operator=(Scene&&) noexcept = default;
 
+    // hardcoded because Magnum always sets this to 80 for GLTF
+    static constexpr Magnum::Float shininess = 20.0f;
+
     bool loadScene(const char* file, Object3D& parent, Magnum::Range3D* bounds = nullptr);
     void addObject(Magnum::Trade::AbstractImporter& importer,
                    Magnum::UnsignedInt objectId,

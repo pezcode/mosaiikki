@@ -29,13 +29,15 @@ public:
         Magnum::GL::Mesh& mesh,
         Magnum::GL::Buffer& instanceBuffer,
         Corrade::Containers::ArrayView<Corrade::Containers::Pointer<Magnum::GL::Texture2D>> textures,
-        const Magnum::Trade::PhongMaterialData& material) :
+        const Magnum::Trade::PhongMaterialData& material,
+        Magnum::Float shininess) :
         Magnum::SceneGraph::Drawable3D(object),
         shader(shader),
         _meshId(meshId),
         _mesh(mesh),
         instanceBuffer(instanceBuffer),
-        material(material)
+        material(material),
+        shininess(shininess)
     {
         ambientTexture = diffuseTexture = specularTexture = normalTexture = nullptr;
 
@@ -113,7 +115,8 @@ private:
             shader.bindTextures(ambientTexture, diffuseTexture, specularTexture, normalTexture);
 
         shader
-            .setShininess(material.shininess())
+            // we override the material shininess because for GLTF it's always 80
+            .setShininess(shininess)
             // make sure ambient alpha is 1.0 since it gets multiplied with instanced vertex color
             .setAmbientColor({ material.ambientColor().rgb(), 1.0f })
             // diffuse and specular colors have no alpha so when the light influences are added up, alpha is unaffected
@@ -132,6 +135,7 @@ private:
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;
     const Magnum::Trade::PhongMaterialData& material;
+    const Magnum::Float shininess;
 
     Magnum::GL::Texture2D *ambientTexture, *diffuseTexture, *specularTexture, *normalTexture;
 

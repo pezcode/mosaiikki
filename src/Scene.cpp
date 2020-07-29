@@ -113,7 +113,7 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
                     bool transparent = z == (objectGridSize - 1);
                     Color3 color =
                         (Color3(x, y, z) + Color3(1.0f)) / objectGridSize; // +1 to avoid completely black objects
-                    float alpha = transparent ? 0.5f : 1.0f;
+                    float alpha = transparent ? 0.75f : 1.0f;
                     instanceDrawable.setColor(Color4(color, alpha));
 
                     Vector3 localX = toLocal * Vector3::xAxis();
@@ -309,7 +309,8 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                                                *meshes[meshOffset + objectData->instance()],
                                                *instanceBuffers[meshOffset + objectData->instance()],
                                                textures.suffix(textureOffset),
-                                               material);
+                                               material,
+                                               shininess);
                     drawables.add(*drawable);
                     useDefaultMaterial = false;
                 }
@@ -324,7 +325,8 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                                            *meshes[meshOffset + objectData->instance()],
                                            *instanceBuffers[meshOffset + objectData->instance()],
                                            textures, // first textures are the default textures
-                                           defaultMaterial);
+                                           defaultMaterial,
+                                           defaultMaterial.shininess());
                 drawables.add(*drawable);
             }
 
