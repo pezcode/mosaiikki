@@ -242,6 +242,13 @@ vec4 colorAverage(ColorNeighborhood neighbors)
 	return undoTonemap(result);
 }
 
+vec4 colorClamp(ColorNeighborhood neighbors, vec4 color)
+{
+	vec4 minColor = min(min(neighbors.up, neighbors.down), min(neighbors.left, neighbors.right));
+	vec4 maxColor = max(max(neighbors.up, neighbors.down), max(neighbors.left, neighbors.right));
+	return undoTonemap(clamp(tonemap(color), minColor, maxColor));
+}
+
 // undo depth projection
 // assumes a projection transformation produced by Matrix4::perspectiveProjection with finite far plane
 // solve for view space z: (z(n+f) + 2nf)/(-z(n-f)) = 2w-1
@@ -265,6 +272,16 @@ float fetchDepthAverage(ivec2 coords, int quadrant)
 	return result * 0.25;
 }
 
+// get screen space velocity vector from fullscreen coordinates
+// the z component is a mask for dynamic objects, if it's 0 no velocity was calculated at that coordinate
+// and camera reprojection is necessary
+vec3 fetchVelocity(ivec2 coords)
+{
+	return texelFetch(velocity, coords, 0).xyz * vec3(viewport, 1.0);
+}
+
+// get old frame's pixel position based on camera movement
+// unprojects world position from screen space depth, then projects into previous frame's screen space
 ivec2 reprojectPixel(ivec2 coords, float depth)
 {
 	vec2 screen = vec2(coords) + 0.5; // gl_FragCoord x/y are located at half-pixel centers, undo the flooring
@@ -340,12 +357,11 @@ void main()
 	// for fully general results, sample from a velocity buffer
 	if(OPTION_SET(USE_VELOCITY_BUFFER))
 	{
-		vec3 velocity = texelFetch(velocity, coords, 0).xyz;
+		vec3 velocity = fetchVelocity(coords);
 		// z is a mask for dynamic objects
 		if(velocity.z > 0.0)
 		{
-			vec2 offset = velocity.xy * viewport;
-			oldCoords = ivec2(floor(gl_FragCoord.xy - offset));
+			oldCoords = ivec2(floor(gl_FragCoord.xy - velocity.xy));
 			velocityFromDepth = false;
 		}
 		else
@@ -353,13 +369,7 @@ void main()
 			// force occlusion check to prevent ghosting around previously
 			// occluded pixels
 			// if we only check for quarter-pixel movement, we'd see (0,0) movement in
-			// that case and directly use the old frame's, but we need to average
-
-			// TODO this causes noticable jittering around object edges for perfectly still scenes
-			// because now the average is taken even if there is nothing being occluded
-
-			// similarly for velocityFromDepth, where a pixel at the far plane is close enough
-			// to fail the depth occlusion check because it's in the neighborhood of the edge
+			// that case and directly use the old frame's, but we need to average			
 			possiblyOccluded = true;
 		}
 	}
@@ -368,11 +378,11 @@ void main()
 	if(velocityFromDepth)
 	{
 		float z = fetchQuadrant(depth, halfCoords, quadrant).x;
-		if(z < 1.0)
-			oldCoords = reprojectPixel(coords, z);
-		else
-			possiblyOccluded = true;
+		oldCoords = reprojectPixel(coords, z);
 	}
+
+	ivec2 oldHalfCoords = oldCoords >> 1;
+	int oldQuadrant = calculateQuadrant(oldCoords);
 
 	// is the previous position outside the screen?
 	if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
@@ -383,9 +393,6 @@ void main()
 			fragColor = colorAverage(neighbors);
 		return;
 	}
-
-	ivec2 oldHalfCoords = oldCoords >> 1;
-	int oldQuadrant = calculateQuadrant(oldCoords);
 
 	// is the previous position not in an old frame quadrant?
 	// this happens when any movement cancelled the jitter
@@ -434,6 +441,17 @@ void main()
 		return;
 	}
 
-	// no occlusion, directly use the old color
-	fragColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
+	// clamp color based on neighbors
+	vec4 reprojectedColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
+	vec4 clampedColor = colorClamp(neighbors, reprojectedColor);
+
+	// blend back towards reprojected result using confidence based on old depth
+	float currentDepthAverage = fetchDepthAverage(halfCoords, quadrant);
+	float oldDepth = screenToViewDepth(fetchQuadrant(depth, oldHalfCoords, oldQuadrant).x);
+	float diff = abs(currentDepthAverage - oldDepth);
+	// reuse depthTolerance to indicate 0 confidence cutoff
+	// square falloff
+	float deviation = diff - depthTolerance;
+	float confidence = clamp(deviation * deviation, 0.0, 1.0);
+	fragColor = mix(clampedColor, reprojectedColor, confidence);
 }
