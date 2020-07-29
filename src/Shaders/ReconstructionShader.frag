@@ -8,8 +8,31 @@
 // core in 3.3
 #extension GL_ARB_explicit_attrib_location : require
 
-// Reference:
+// References:
+
+//  Checkerboard Rendering for Real-Time Upscaling on Intel Integrated Graphics
 // https://software.intel.com/en-us/articles/checkerboard-rendering-for-real-time-upscaling-on-intel-integrated-graphics
+// - checkerboard pattern, viewport jitter
+// - velocity pass, depth reprojection
+// - initial reconstruction shader with depth-based occlusion test
+
+// Rendering Rainbow Six Siege, Jalal El Mansouri
+// https://twvideo01.ubm-us.net/o1/vault/gdc2016/Presentations/El_Mansouri_Jalal_Rendering_Rainbow_Six.pdf
+// - color clamping and confidence blend
+// - dilated velocity, preserves object silhouette (TODO)
+//   - use velocity of pixel in 3x3 neighboorhood that's closest to the camera
+//   - we need full-res depth here which requires the velocity pass to render the entire scene
+
+// 4K Checkerboard in Battlefield 1 and Mass Effect, Graham Wihlidal
+// http://frostbite-wp-prd.s3.amazonaws.com/wp-content/uploads/2017/03/04173623/GDC-Checkerboard.compressed.pdf
+// - differential blend operator, removes artifacts around object edges
+// - sharpen filter (TODO)
+
+// Dynamic Temporal Antialiasing and Upsampling in Call of Duty, Jorge Jimenez
+// https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf
+// - composite object velocity with camera velocity (TODO)
+//   - downsample to half-res closest velocity in same pass
+//     - reduces texture reads required, 2 gathers for velocity
 
 // quarter-res 2X multisampled textures
 // two layers: even / odd (jittered)

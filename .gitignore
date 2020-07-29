@@ -1,5 +1,5 @@
 /build*/*
-/images/*
+/images/temp/*
 
 # Large files
 /resources/models/*
