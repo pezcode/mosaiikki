@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Magnum/SceneGraph/Drawable.h>
-#include <Magnum/SceneGraph/Object.h>
+#include <Magnum/SceneGraph/AbstractObject.h>
 #include <Magnum/Math/Matrix4.h>
 #include <Magnum/Math/Matrix3.h>
 #include <Magnum/Math/Color.h>
@@ -15,7 +15,7 @@ template<typename Transform>
 class InstanceDrawable : public Magnum::SceneGraph::Drawable3D
 {
 public:
-    typedef Magnum::SceneGraph::Object<Transform> Object3D;
+    typedef Magnum::SceneGraph::AbstractObject<Transform::Dimensions, typename Transform::Type> Object;
 
     struct InstanceData
     {
@@ -26,7 +26,7 @@ public:
 
     typedef Corrade::Containers::Array<InstanceData> InstanceArray;
 
-    explicit InstanceDrawable(Object3D& object, InstanceArray& instanceData) :
+    explicit InstanceDrawable(Object& object, InstanceArray& instanceData) :
         Magnum::SceneGraph::Drawable3D(object), instanceData(instanceData)
     {
     }

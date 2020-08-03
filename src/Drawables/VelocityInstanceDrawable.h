@@ -2,7 +2,7 @@
 
 #include "Shaders/VelocityShader.h"
 #include <Magnum/SceneGraph/Drawable.h>
-#include <Magnum/SceneGraph/Object.h>
+#include <Magnum/SceneGraph/AbstractObject.h>
 #include <Magnum/Math/Matrix4.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
@@ -13,7 +13,7 @@ template<typename Transform>
 class VelocityInstanceDrawable : public Magnum::SceneGraph::Drawable3D
 {
 public:
-    typedef Magnum::SceneGraph::Object<Transform> Object3D;
+    typedef Magnum::SceneGraph::AbstractObject<Transform::Dimensions, typename Transform::Type> Object;
 
     struct InstanceData
     {
@@ -23,7 +23,7 @@ public:
 
     typedef Corrade::Containers::Array<InstanceData> InstanceArray;
 
-    explicit VelocityInstanceDrawable(Object3D& object, InstanceArray& instanceData) :
+    explicit VelocityInstanceDrawable(Object& object, InstanceArray& instanceData) :
         Magnum::SceneGraph::Drawable3D(object),
         oldTransformation(Magnum::Math::IdentityInit),
         instanceData(instanceData)

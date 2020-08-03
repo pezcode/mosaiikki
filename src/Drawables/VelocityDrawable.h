@@ -3,6 +3,7 @@
 #include "Drawables/VelocityInstanceDrawable.h"
 #include "Shaders/VelocityShader.h"
 #include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/AbstractObject.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include <Magnum/GL/Mesh.h>
 
@@ -10,9 +11,9 @@ template<typename Transform>
 class VelocityDrawable : public Magnum::SceneGraph::Drawable3D
 {
 public:
-    typedef Magnum::SceneGraph::Object<Transform> Object3D;
+    typedef Magnum::SceneGraph::AbstractObject<Transform::Dimensions, typename Transform::Type> Object;
 
-    explicit VelocityDrawable(Object3D& object,
+    explicit VelocityDrawable(Object& object,
                               VelocityShader& shader,
                               Magnum::UnsignedInt meshId,
                               Magnum::GL::Mesh& mesh,
@@ -30,11 +31,12 @@ public:
         return _meshId;
     }
 
-    VelocityInstanceDrawable<Transform>& addInstance(Object3D& object)
+    VelocityInstanceDrawable<Transform>& addInstance(Object& object)
     {
-        VelocityInstanceDrawable<Transform>* instance = new VelocityInstanceDrawable<Transform>(object, instanceData);
-        instanceDrawables.add(*instance);
-        return *instance;
+        VelocityInstanceDrawable<Transform>& instance =
+            object.template addFeature<VelocityInstanceDrawable<Transform>>(instanceData);
+        instanceDrawables.add(instance);
+        return instance;
     }
 
     Magnum::SceneGraph::DrawableGroup3D& instances()

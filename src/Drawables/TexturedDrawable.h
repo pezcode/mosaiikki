@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Drawables/InstanceDrawable.h"
-#include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Drawable.h>
+#include <Magnum/SceneGraph/AbstractObject.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/Trade/PhongMaterialData.h>
@@ -20,10 +20,10 @@ template<typename Transform>
 class TexturedDrawable : public Magnum::SceneGraph::Drawable3D
 {
 public:
-    typedef Magnum::SceneGraph::Object<Transform> Object3D;
+    typedef Magnum::SceneGraph::AbstractObject<Transform::Dimensions, typename Transform::Type> Object;
 
     explicit TexturedDrawable(
-        Object3D& object,
+        Object& object,
         Magnum::Shaders::Phong& shader,
         Magnum::UnsignedInt meshId,
         Magnum::GL::Mesh& mesh,
@@ -59,11 +59,12 @@ public:
         return _meshId;
     }
 
-    InstanceDrawable<Transform>& addInstance(Object3D& object)
+    InstanceDrawable<Transform>& addInstance(Object& object)
     {
-        InstanceDrawable<Transform>* instance = new InstanceDrawable<Transform>(object, instanceData);
-        instanceDrawables.add(*instance);
-        return *instance;
+        // template is required so the compiler knows we don't mean less-than
+        InstanceDrawable<Transform>& instance = object.template addFeature<InstanceDrawable<Transform>>(instanceData);
+        instanceDrawables.add(instance);
+        return instance;
     }
 
     Magnum::SceneGraph::DrawableGroup3D& instances()

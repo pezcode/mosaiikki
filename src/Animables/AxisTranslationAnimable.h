@@ -13,14 +13,14 @@ template<typename Transform>
 class AxisTranslationAnimable : public Magnum::SceneGraph::Animable3D
 {
 public:
-    typedef Magnum::SceneGraph::Object<Transform> Object3D;
+    typedef Magnum::SceneGraph::AbstractObject<Transform::Dimensions, typename Transform::Type> Object;
 
-    explicit AxisTranslationAnimable(Object3D& object,
+    explicit AxisTranslationAnimable(Object& object,
                                      const Magnum::Vector3& axis,
                                      Magnum::Float velocity, /* units per second */
                                      Magnum::Float range = Magnum::Constants::inf() /* units */) :
         Magnum::SceneGraph::Animable3D(object),
-        transformation(object),
+        transformation(static_cast<Magnum::SceneGraph::Object<Transform>&>(object)),
         axis(axis.normalized()),
         velocity(velocity),
         range(Magnum::Math::abs(range))
