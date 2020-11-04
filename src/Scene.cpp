@@ -12,7 +12,7 @@
 #include <Magnum/Math/FunctionsBatch.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/MeshTools/Compile.h>
-#include <Corrade/Utility/DebugStl.h>
+#include <Corrade/Utility/Debug.h>
 #include <Corrade/Containers/Optional.h>
 #include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/PluginManager/Manager.h>
@@ -22,7 +22,7 @@ using namespace Magnum::Math::Literals;
 using namespace Corrade;
 using namespace Feature;
 
-Scene::Scene(NoCreateT) : materialShader(NoCreate), velocityShader(NoCreate) {}
+Scene::Scene(NoCreateT) : materialShader(NoCreate), velocityShader(NoCreate) { }
 
 Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 {
@@ -34,8 +34,9 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 
     // Scene
 
-    lightPositions = Containers::array<Vector3>({ { -3.0f, 10.0f, 10.0f } });
-    lightColors = Containers::array<Color4>({ 0xffffff_rgbf });
+    // w in light positions decides about light type (1 = point, 0 = directional)
+    lightPositions = Containers::array<Vector4>({ { -3.0f, 10.0f, 10.0f, 0.0f } });
+    lightColors = Containers::array<Color3>({ 0xffffff_rgbf });
     CORRADE_INTERNAL_ASSERT(lightPositions.size() == lightColors.size());
 
     cameraObject.setParent(&scene);
@@ -184,12 +185,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
            GL::meshPrimitive(data->primitive()) == GL::MeshPrimitive::Triangles)
         {
             if(bounds)
-            {
-                const std::pair<Vector3, Vector3> minmax = Math::minmax(data->positions3DAsArray());
-                const Range3D meshBounds = { minmax.first, minmax.second };
-                sceneBounds.min() = Math::min(sceneBounds.min(), meshBounds.min());
-                sceneBounds.max() = Math::max(sceneBounds.max(), meshBounds.max());
-            }
+                sceneBounds = Math::join(sceneBounds, Range3D(Math::minmax(data->positions3DAsArray())));
 
             GL::Buffer indices, vertices;
             indices.setData(data->indexData());
@@ -217,13 +213,13 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
 
     for(UnsignedInt i = 0; i < importer->materialCount(); i++)
     {
-        Containers::Pointer<Trade::AbstractMaterialData> data = importer->material(i);
-        if(data && data->type() == Trade::MaterialType::Phong)
+        Containers::Optional<Trade::MaterialData> data = importer->material(i);
+        if(data && data->types() & Trade::MaterialType::Phong)
         {
-            materials[materialOffset + i].emplace(std::move(static_cast<Trade::PhongMaterialData&>(*data)));
+            materials[materialOffset + i].emplace(std::move(*data));
         }
         else
-            Warning(Warning::Flag::NoSpace) << "Skipping material " << i << " (not a Phong-compatible material)";
+            Warning(Warning::Flag::NoSpace) << "Skipping material " << i << " (not Phong-compatible)";
     }
 
     // load textures
@@ -299,10 +295,9 @@ void Scene::addObject(Trade::AbstractImporter& importer,
             const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
             if(materialId != -1 && materials[materialOffset + materialId])
             {
-                const Trade::PhongMaterialData& material = *materials[materialOffset + materialId];
-                const Trade::PhongMaterialData::Flags requiredFlags =
-                    TexturedDrawable3D::requiredMaterialFlags(materialShader);
-                if((material.flags() & requiredFlags) == requiredFlags)
+                const Trade::PhongMaterialData& material =
+                    materials[materialOffset + materialId]->as<Trade::PhongMaterialData>();
+                if(TexturedDrawable3D::isCompatibleMaterial(material, materialShader))
                 {
                     TexturedDrawable3D& drawable =
                         object.addFeature<TexturedDrawable3D>(materialShader,
@@ -319,14 +314,15 @@ void Scene::addObject(Trade::AbstractImporter& importer,
 
             if(useDefaultMaterial)
             {
+                const Trade::PhongMaterialData& material = defaultMaterial.as<Trade::PhongMaterialData>();
                 TexturedDrawable3D& drawable =
                     object.addFeature<TexturedDrawable3D>(materialShader,
                                                           meshOffset + objectData->instance(),
                                                           *meshes[meshOffset + objectData->instance()],
                                                           *instanceBuffers[meshOffset + objectData->instance()],
                                                           textures, // first textures are the default textures
-                                                          defaultMaterial,
-                                                          defaultMaterial.shininess());
+                                                          material,
+                                                          material.shininess());
                 drawables.add(drawable);
             }
 

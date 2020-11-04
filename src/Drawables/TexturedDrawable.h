@@ -14,7 +14,7 @@
 #include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/Containers/Pointer.h>
 #include <Corrade/Utility/Assert.h>
-#include <algorithm>
+//#include <algorithm>
 
 template<typename Transform>
 class TexturedDrawable : public Magnum::SceneGraph::Drawable3D
@@ -41,16 +41,16 @@ public:
     {
         ambientTexture = diffuseTexture = specularTexture = normalTexture = nullptr;
 
-        Magnum::Trade::PhongMaterialData::Flags requiredFlags = requiredMaterialFlags(shader);
-        CORRADE_ASSERT((requiredFlags & material.flags()) == requiredFlags, "Material missing required textures", );
+        CORRADE_ASSERT(isCompatibleMaterial(material, shader), "Material missing required textures", );
 
-        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::AmbientTexture)
+        if(material.hasAttribute(Magnum::Trade::MaterialAttribute::AmbientTexture))
             ambientTexture = textures[material.ambientTexture()].get();
-        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::DiffuseTexture)
+        if(material.hasAttribute(Magnum::Trade::MaterialAttribute::DiffuseTexture))
             diffuseTexture = textures[material.diffuseTexture()].get();
-        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::SpecularTexture)
+        if(material.hasAttribute(Magnum::Trade::MaterialAttribute::SpecularTexture) ||
+           material.hasAttribute(Magnum::Trade::MaterialAttribute::SpecularGlossinessTexture))
             specularTexture = textures[material.specularTexture()].get();
-        if(requiredFlags & Magnum::Trade::PhongMaterialData::Flag::NormalTexture)
+        if(material.hasAttribute(Magnum::Trade::MaterialAttribute::NormalTexture))
             normalTexture = textures[material.normalTexture()].get();
     }
 
@@ -72,18 +72,25 @@ public:
         return instanceDrawables;
     }
 
-    static Magnum::Trade::PhongMaterialData::Flags requiredMaterialFlags(const Magnum::Shaders::Phong& shader)
+    static bool isCompatibleMaterial(const Magnum::Trade::PhongMaterialData& material,
+                                     const Magnum::Shaders::Phong& shader)
     {
-        Magnum::Trade::PhongMaterialData::Flags flags = {};
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::AmbientTexture)
-            flags |= Magnum::Trade::PhongMaterialData::Flag::AmbientTexture;
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::DiffuseTexture)
-            flags |= Magnum::Trade::PhongMaterialData::Flag::DiffuseTexture;
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::SpecularTexture)
-            flags |= Magnum::Trade::PhongMaterialData::Flag::SpecularTexture;
-        if(shader.flags() & Magnum::Shaders::Phong::Flag::NormalTexture)
-            flags |= Magnum::Trade::PhongMaterialData::Flag::NormalTexture;
-        return flags;
+        const std::pair<Magnum::Shaders::Phong::Flag, Magnum::Trade::MaterialAttribute> combinations[] = {
+            { Magnum::Shaders::Phong::Flag::AmbientTexture, Magnum::Trade::MaterialAttribute::AmbientTexture },
+            { Magnum::Shaders::Phong::Flag::DiffuseTexture, Magnum::Trade::MaterialAttribute::DiffuseTexture },
+            // TODO make this more generic, this only works for the GLTF test meshes
+            { Magnum::Shaders::Phong::Flag::SpecularTexture,
+              Magnum::Trade::MaterialAttribute::SpecularGlossinessTexture },
+            { Magnum::Shaders::Phong::Flag::NormalTexture, Magnum::Trade::MaterialAttribute::NormalTexture }
+        };
+
+        for(const auto& combination : combinations)
+        {
+            if((shader.flags() & combination.first) && !material.hasAttribute(combination.second))
+                return false;
+        }
+
+        return true;
     }
 
 private:
@@ -94,7 +101,7 @@ private:
 
         /*
         // sort objects back to front for correct alpha blending
-        // not needed currently since we add instanced in our scene in the correct order and the camera position is static
+        // not needed currently since we add instances in our scene in the correct order and the camera position is static
         std::vector<std::pair<std::reference_wrapper<SceneGraph::Drawable3D>, Matrix4>> drawableTransformations =
             camera.drawableTransformations(instanceDrawables);
         
@@ -116,7 +123,7 @@ private:
             shader.bindTextures(ambientTexture, diffuseTexture, specularTexture, normalTexture);
 
         shader
-            // we override the material shininess because for GLTF it's always 80
+            // we override the material shininess because for imported GLTF it's always 80
             .setShininess(shininess)
             // make sure ambient alpha is 1.0 since it gets multiplied with instanced vertex color
             .setAmbientColor({ material.ambientColor().rgb(), 1.0f })

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Magnum/Trade/PhongMaterialData.h>
+#include <Magnum/Trade/MaterialData.h>
 #include <Magnum/ImageView.h>
 #include <Magnum/PixelFormat.h>
 #include <Magnum/Math/Packing.h>
@@ -9,12 +9,12 @@
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/ArrayView.h>
 
-class DefaultMaterial : public Magnum::Trade::PhongMaterialData
+class DefaultMaterial : public Magnum::Trade::MaterialData
 {
 public:
-    enum UnsignedInt
+    enum : Magnum::UnsignedInt
     {
-        AmbientTextureId = 0,
+        AmbientTextureId = 0u,
         DiffuseTextureId,
         SpecularTextureId,
         NormalTextureId,
@@ -22,19 +22,14 @@ public:
     };
 
     explicit DefaultMaterial() :
-        PhongMaterialData(Flag::AmbientTexture | Flag::DiffuseTexture | Flag::SpecularTexture | Flag::NormalTexture,
-                          Magnum::Color4(0.0f), // ambient color
-                          AmbientTextureId,
-                          Magnum::Color4(1.0f), // diffuse color
-                          DiffuseTextureId,
-                          Magnum::Color4(1.0f), // specular color
-                          SpecularTextureId,
-                          NormalTextureId,
-                          Magnum::Matrix3(Magnum::Math::IdentityInit), // texture matrix
-                          Magnum::Trade::MaterialAlphaMode::Opaque,
-                          0.5f,  // alpha mask
-                          80.0f, // shininess
-                          nullptr)
+        MaterialData(
+            Magnum::Trade::MaterialType::Phong,
+            { { Magnum::Trade::MaterialAttribute::AmbientTexture, Magnum::UnsignedInt(AmbientTextureId) },
+              { Magnum::Trade::MaterialAttribute::DiffuseTexture, Magnum::UnsignedInt(DiffuseTextureId) },
+              { Magnum::Trade::MaterialAttribute::SpecularTexture, Magnum::UnsignedInt(SpecularTextureId) },
+              { Magnum::Trade::MaterialAttribute::SpecularGlossinessTexture, Magnum::UnsignedInt(SpecularTextureId) },
+              { Magnum::Trade::MaterialAttribute::NormalTexture, Magnum::UnsignedInt(NormalTextureId) },
+              { Magnum::Trade::MaterialAttribute::Shininess, 80.0f } })
     {
     }
 

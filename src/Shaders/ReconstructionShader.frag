@@ -407,6 +407,12 @@ void main()
     ivec2 oldHalfCoords = oldCoords >> 1;
     int oldQuadrant = calculateQuadrant(oldCoords);
 
+    // TODO
+    // this eliminates jitter, but breaks with smearing everywhere
+    // occlusion?
+    //fragColor = fetchQuadrant(color, oldHalfCoords, oldQuadrant);
+    //return;
+
     // is the previous position outside the screen?
     if(any(lessThan(oldCoords, ivec2(0, 0))) || any(greaterThanEqual(oldCoords, viewport)))
     {

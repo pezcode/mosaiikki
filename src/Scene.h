@@ -69,7 +69,7 @@ public:
     Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Mesh>> velocityMeshes;
     Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Buffer>> velocityInstanceBuffers;
 
-    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::Trade::PhongMaterialData>> materials;
+    Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::Trade::MaterialData>> materials;
     Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Texture2D>> textures;
 
     DefaultMaterial defaultMaterial;
@@ -93,8 +93,8 @@ public:
     Magnum::SceneGraph::DrawableGroup3D transparentVelocityDrawables;
 
     static constexpr size_t objectGridSize = 6;
-    Corrade::Containers::Array<Magnum::Vector3> lightPositions;
-    Corrade::Containers::Array<Magnum::Color4> lightColors;
+    Corrade::Containers::Array<Magnum::Vector4> lightPositions;
+    Corrade::Containers::Array<Magnum::Color3> lightColors;
 
     Magnum::Shaders::Phong materialShader;
     VelocityShader velocityShader;
