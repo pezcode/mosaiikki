@@ -1,0 +1,36 @@
+{
+  "buildType": {
+    "default": "debug",
+    "choices": {
+      "debug": {
+        "short": "Debug",
+        "long": "Emit debug information",
+        "buildType": "Debug"
+      },
+      "release": {
+        "short": "Release",
+        "long": "Optimize generated code",
+        "buildType": "Release"
+      }
+    }
+  },
+  "shaderValidation": {
+    "default": "off",
+    "choices": {
+      "on": {
+        "short": "Validation",
+        "long": "Enable offline shader validation",
+        "settings": {
+          "SHADER_VALIDATION": "ON"
+        }
+      },
+      "off": {
+        "short": "NoValidation",
+        "long": "Disable offline shader validation",
+        "settings": {
+          "SHADER_VALIDATION": "OFF"
+        }
+      }
+    }
+  }
+}

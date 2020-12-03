@@ -8,6 +8,13 @@
 // core in 3.3
 #extension GL_ARB_explicit_attrib_location : require
 
+#ifdef VALIDATION
+#extension GL_GOOGLE_include_directive : require
+#include "ReconstructionOptions.h"
+
+#define COLOR_OUTPUT_ATTRIBUTE_LOCATION 0
+#endif
+
 // References:
 
 //  Checkerboard Rendering for Real-Time Upscaling on Intel Integrated Graphics

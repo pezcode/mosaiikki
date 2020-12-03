@@ -10,6 +10,7 @@
 
 /.vscode/*
 !/.vscode/launch.json
+!/.vscode/cmake-variants.json
 
 # Prerequisites
 *.d
