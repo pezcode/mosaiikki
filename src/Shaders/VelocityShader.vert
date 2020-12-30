@@ -2,6 +2,12 @@
 // core in 3.3
 #extension GL_ARB_explicit_attrib_location : require
 
+#ifdef VALIDATION
+#define POSITION_ATTRIBUTE_LOCATION 0
+#define TRANSFORMATION_ATTRIBUTE_LOCATION 1
+#define OLD_TRANSFORMATION_ATTRIBUTE_LOCATION 2
+#endif
+
 uniform mat4 transformationMatrix = mat4(1.0);
 uniform mat4 oldTransformationMatrix = mat4(1.0);
 

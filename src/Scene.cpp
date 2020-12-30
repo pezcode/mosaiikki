@@ -22,6 +22,9 @@ using namespace Magnum::Math::Literals;
 using namespace Corrade;
 using namespace Feature;
 
+// for some reason GCC expects a definition for a static constexpr float
+constexpr Magnum::Float Scene::shininess;
+
 Scene::Scene(NoCreateT) : materialShader(NoCreate), velocityShader(NoCreate) { }
 
 Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)

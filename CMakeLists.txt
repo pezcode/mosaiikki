@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.4)
+# 3.4 would be enough if we didn't need CMP0079 for shaderconverter
+cmake_minimum_required(VERSION 3.13)
 project(mosaiikki CXX)
 
 set(CMAKE_CXX_STANDARD 14)
@@ -17,6 +18,8 @@ list(APPEND CMAKE_MODULE_PATH
     "${PROJECT_SOURCE_DIR}/3rdparty/magnum-plugins/modules"
     "${PROJECT_SOURCE_DIR}/3rdparty/magnum-integration/modules"
 )
+
+option(SHADER_VALIDATION "Validate shaders at build time" OFF)
 
 add_subdirectory(3rdparty)
 add_subdirectory(src)

@@ -6,6 +6,24 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(glfw EXCLUDE_FROM_ALL)
 
+# glslang
+
+if(SHADER_VALIDATION)
+    # if we don't do this, CMake will complain that Glslang::Glslang depends on
+    # a non-existent path <project>/build/include in INTERFACE_INCLUDE_DIRECTORIES
+    # glslang only creates this directory later at build time
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
+
+    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
+    set(ENABLE_CTEST OFF CACHE BOOL "" FORCE)
+    set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
+    set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
+    set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
+    set(ENABLE_SPVREMAPPER OFF CACHE BOOL "" FORCE)
+    add_subdirectory(glslang EXCLUDE_FROM_ALL)
+endif()
+
 # Corrade and Magnum settings
 
 set(BUILD_DEPRECATED OFF CACHE BOOL "" FORCE)
@@ -35,12 +53,20 @@ set(WITH_SCENEGRAPH ON CACHE BOOL "" FORCE)
 set(WITH_SHADERS ON CACHE BOOL "" FORCE)
 set(WITH_TRADE ON CACHE BOOL "" FORCE)
 set(WITH_GL ON CACHE BOOL "" FORCE)
+if(SHADER_VALIDATION)
+    set(WITH_ANYSHADERCONVERTER ON CACHE BOOL "" FORCE)
+    set(WITH_SHADERCONVERTER ON CACHE BOOL "" FORCE)
+    set(WITH_SHADERTOOLS ON CACHE BOOL "" FORCE)
+endif()
 add_subdirectory(magnum EXCLUDE_FROM_ALL)
 
 # Magnum plugins
 
 set(WITH_TINYGLTFIMPORTER ON CACHE BOOL "" FORCE)
 set(WITH_STBIMAGEIMPORTER ON CACHE BOOL "" FORCE)
+if(SHADER_VALIDATION)
+    set(WITH_GLSLANGSHADERCONVERTER ON CACHE BOOL "" FORCE)
+endif()
 add_subdirectory(magnum-plugins EXCLUDE_FROM_ALL)
 
 # Magnum integration

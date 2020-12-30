@@ -2,6 +2,10 @@
 // core in 3.3
 #extension GL_ARB_explicit_attrib_location : require
 
+#ifdef VALIDATION
+#define VELOCITY_OUTPUT_ATTRIBUTE_LOCATION 0
+#endif
+
 in vec4 clipPos;
 in vec4 oldClipPos;
 
