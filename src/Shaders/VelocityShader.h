@@ -2,20 +2,20 @@
 
 #include <Magnum/GL/AbstractShaderProgram.h>
 #include <Magnum/GL/Version.h>
-#include <Magnum/Shaders/Generic.h>
+#include <Magnum/Shaders/GenericGL.h>
 #include <Magnum/Math/Matrix4.h>
 #include <Corrade/Containers/EnumSet.h>
 
 class VelocityShader : public Magnum::GL::AbstractShaderProgram
 {
 public:
-    typedef Magnum::Shaders::Generic3D::TransformationMatrix TransformationMatrix;
+    typedef Magnum::Shaders::GenericGL3D::TransformationMatrix TransformationMatrix;
     typedef Magnum::GL::Attribute<TransformationMatrix::Location + TransformationMatrix::Vectors, Magnum::Matrix4>
         OldTransformationMatrix;
 
     enum : Magnum::UnsignedInt
     {
-        VelocityOutput = Magnum::Shaders::Generic3D::ColorOutput
+        VelocityOutput = Magnum::Shaders::GenericGL3D::ColorOutput
     };
 
     enum class Flag : Magnum::UnsignedShort

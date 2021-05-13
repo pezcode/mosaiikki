@@ -5,6 +5,8 @@
 #include <Magnum/GL/MultisampleTexture.h>
 #include <Magnum/GL/Texture.h>
 #include <Corrade/Containers/Reference.h>
+#include <Corrade/Containers/StringView.h>
+#include <Corrade/Containers/StringStl.h>
 #include <Corrade/Utility/Resource.h>
 #include <Corrade/Utility/FormatStl.h>
 
@@ -19,12 +21,12 @@ ReconstructionShader::ReconstructionShader(const Flags flags) : _flags(flags)
 
     Utility::Resource rs("shaders");
 
-    vert.addSource(rs.get("ReconstructionShader.vert"));
+    vert.addSource(rs.getString("ReconstructionShader.vert"));
 
     frag.addSource(flags & Flag::Debug ? "#define DEBUG\n" : "");
     frag.addSource(Utility::formatString("#define COLOR_OUTPUT_ATTRIBUTE_LOCATION {}\n", ColorOutput));
-    frag.addSource(rs.get("ReconstructionOptions.h"));
-    frag.addSource(rs.get("ReconstructionShader.frag"));
+    frag.addSource(rs.getString("ReconstructionOptions.h"));
+    frag.addSource(rs.getString("ReconstructionShader.frag"));
 
     // possibly parallel compilation
     CORRADE_INTERNAL_ASSERT_OUTPUT(GL::Shader::compile({ vert, frag }));

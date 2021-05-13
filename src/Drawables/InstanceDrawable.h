@@ -7,7 +7,7 @@
 #include <Magnum/Math/Color.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
-#include <Magnum/Shaders/Generic.h>
+#include <Magnum/Shaders/GenericGL.h>
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/GrowableArray.h>
 
@@ -42,9 +42,9 @@ public:
         mesh.addVertexBufferInstanced(instanceBuffer,
                                       1, // divisor
                                       0, // offset
-                                      Magnum::Shaders::Generic3D::TransformationMatrix(),
-                                      Magnum::Shaders::Generic3D::NormalMatrix(),
-                                      Magnum::Shaders::Generic3D::Color4());
+                                      Magnum::Shaders::GenericGL3D::TransformationMatrix(),
+                                      Magnum::Shaders::GenericGL3D::NormalMatrix(),
+                                      Magnum::Shaders::GenericGL3D::Color4());
         return Magnum::GL::Buffer(std::move(instanceBuffer));
     }
 

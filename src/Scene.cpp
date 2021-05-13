@@ -2,7 +2,6 @@
 
 #include <Magnum/Trade/SceneData.h>
 #include <Magnum/Trade/MeshData.h>
-#include <Magnum/Trade/MeshObjectData3D.h>
 #include <Magnum/Trade/TextureData.h>
 #include <Magnum/Trade/ImageData.h>
 #include <Magnum/ImageView.h>
@@ -14,6 +13,7 @@
 #include <Magnum/MeshTools/Compile.h>
 #include <Corrade/Utility/Debug.h>
 #include <Corrade/Containers/Optional.h>
+#include <Corrade/Containers/Pair.h>
 #include <Corrade/Containers/GrowableArray.h>
 #include <Corrade/PluginManager/Manager.h>
 
@@ -56,10 +56,11 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
     // Shaders
 
     // vertex color is coming from the instance buffer attribute
-    materialShader = Shaders::Phong(Shaders::Phong::Flag::InstancedTransformation | Shaders::Phong::Flag::VertexColor |
-                                        Shaders::Phong::Flag::DiffuseTexture | Shaders::Phong::Flag::SpecularTexture |
-                                        Shaders::Phong::Flag::NormalTexture,
-                                    lightPositions.size());
+    materialShader =
+        Shaders::PhongGL(Shaders::PhongGL::Flag::InstancedTransformation | Shaders::PhongGL::Flag::VertexColor |
+                             Shaders::PhongGL::Flag::DiffuseTexture | Shaders::PhongGL::Flag::SpecularTexture |
+                             Shaders::PhongGL::Flag::NormalTexture,
+                         lightPositions.size());
     materialShader.setLightPositions(lightPositions);
     materialShader.setLightColors(lightColors);
     materialShader.setLabel("Material shader (instanced, textured Phong)");
@@ -69,13 +70,13 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
 
     // Objects
 
-    std::string mesh = "resources/models/Avocado/Avocado.gltf";
+    const char* mesh = "resources/models/Avocado/Avocado.gltf";
 
     Object3D& object = root.addChild<Object3D>();
     object.translate({ 0.0f, 0.0f, -5.0f });
 
     Range3D bounds;
-    bool loaded = loadScene(mesh.c_str(), object, &bounds);
+    bool loaded = loadScene(mesh, object, &bounds);
     CORRADE_ASSERT(loaded, "Failed to load scene", );
 
     float scale = 2.0f / bounds.size().max();
@@ -145,7 +146,7 @@ Scene::Scene() : materialShader(NoCreate), velocityShader(NoCreate)
     }
 }
 
-bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
+bool Scene::loadScene(const char* file, Object3D& root, Range3D* bounds)
 {
     // load importer
 
@@ -169,7 +170,12 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
     if(!sceneData)
         return false;
 
-    // extract and compile meshes
+    if(!sceneData->is3D() ||
+       !sceneData->hasField(Trade::SceneField::Parent) || // TODO does this break files with just one object?
+       !sceneData->hasField(Trade::SceneField::Mesh))
+        return false;
+
+    // load and compile meshes
 
     Magnum::UnsignedInt meshOffset = meshes.size();
     Containers::arrayResize(meshes, meshes.size() + importer->meshCount());
@@ -233,7 +239,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
     for(UnsignedInt i = 0; i < importer->textureCount(); i++)
     {
         Containers::Optional<Trade::TextureData> textureData = importer->texture(i);
-        if(textureData && textureData->type() == Trade::TextureData::Type::Texture2D)
+        if(textureData && textureData->type() == Trade::TextureType::Texture2D)
         {
             Containers::Optional<Trade::ImageData2D> imageData = importer->image2D(textureData->image(), 0 /* level */);
             if(imageData)
@@ -249,9 +255,7 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
                         break;
                     default:
                         Warning(Warning::Flag::NoSpace)
-                            << "Skipping texture: "
-                            << i //importer->textureName(i) <- TODO, this is empty, how to get the texture path?
-                            << " (unsupported format " << imageData->format() << ")";
+                            << "Skipping texture " << i << " (unsupported format " << imageData->format() << ")";
                         continue;
                 }
                 GL::Texture2D texture;
@@ -266,36 +270,38 @@ bool Scene::loadScene(const char* file, Object3D& parent, Range3D* bounds)
         }
     }
 
-    // add objects recursively
+    // load objects
 
-    for(UnsignedInt objectId : sceneData->children3D())
+    Containers::Array<Object3D*> objects { size_t(sceneData->mappingBound()) };
+    const auto parents = sceneData->parentsAsArray();
+    // create objects in the scene graph
+    for(const Containers::Pair<UnsignedInt, Int>& parent : parents)
     {
-        addObject(*importer, objectId, parent, meshOffset, materialOffset, textureOffset);
+        objects[parent.first()] = &root.addChild<Object3D>();
     }
 
-    return true;
-}
-
-void Scene::addObject(Trade::AbstractImporter& importer,
-                      UnsignedInt objectId,
-                      Object3D& parent,
-                      Magnum::UnsignedInt meshOffset,
-                      Magnum::UnsignedInt materialOffset,
-                      Magnum::UnsignedInt textureOffset)
-{
-    // meshes are compiled and accessible at this point
-
-    Containers::Pointer<Trade::ObjectData3D> objectData = importer.object3D(objectId);
-    if(objectData)
+    // set parents, separate pass because children can occur
+    // before parents
+    for(const Containers::Pair<UnsignedInt, Int>& parent : parents)
     {
-        Object3D& object = parent.addChild<Object3D>();
-        object.setTransformation(objectData->transformation());
+        Object3D* parentObject = parent.second() == -1 ? &root : objects[parent.second()];
+        objects[parent.first()]->setParent(parentObject);
+    }
 
-        if(objectData->instanceType() == Trade::ObjectInstanceType3D::Mesh && objectData->instance() != -1 &&
-           meshes[meshOffset + objectData->instance()])
+    for(const Containers::Pair<UnsignedInt, Matrix4>& transformation : sceneData->transformations3DAsArray())
+    {
+        if(Object3D* object = objects[transformation.first()])
+            object->setTransformation(transformation.second());
+    }
+
+    for(const Containers::Pair<UnsignedInt, Containers::Pair<UnsignedInt, Int>>& meshMaterial :
+        sceneData->meshesMaterialsAsArray())
+    {
+        if(Object3D* object = objects[meshMaterial.first()])
         {
             bool useDefaultMaterial = true;
-            const Int materialId = static_cast<Trade::MeshObjectData3D*>(objectData.get())->material();
+            const UnsignedInt meshId = meshOffset + meshMaterial.second().first();
+            const Int materialId = meshMaterial.second().second();
             if(materialId != -1 && materials[materialOffset + materialId])
             {
                 const Trade::PhongMaterialData& material =
@@ -303,13 +309,13 @@ void Scene::addObject(Trade::AbstractImporter& importer,
                 if(TexturedDrawable3D::isCompatibleMaterial(material, materialShader))
                 {
                     TexturedDrawable3D& drawable =
-                        object.addFeature<TexturedDrawable3D>(materialShader,
-                                                              meshOffset + objectData->instance(),
-                                                              *meshes[meshOffset + objectData->instance()],
-                                                              *instanceBuffers[meshOffset + objectData->instance()],
-                                                              textures.suffix(textureOffset),
-                                                              material,
-                                                              shininess);
+                        object->addFeature<TexturedDrawable3D>(materialShader,
+                                                               meshId,
+                                                               *meshes[meshId],
+                                                               *instanceBuffers[meshId],
+                                                               textures.exceptPrefix(textureOffset),
+                                                               material,
+                                                               shininess);
                     drawables.add(drawable);
                     useDefaultMaterial = false;
                 }
@@ -319,23 +325,20 @@ void Scene::addObject(Trade::AbstractImporter& importer,
             {
                 const Trade::PhongMaterialData& material = defaultMaterial.as<Trade::PhongMaterialData>();
                 TexturedDrawable3D& drawable =
-                    object.addFeature<TexturedDrawable3D>(materialShader,
-                                                          meshOffset + objectData->instance(),
-                                                          *meshes[meshOffset + objectData->instance()],
-                                                          *instanceBuffers[meshOffset + objectData->instance()],
-                                                          textures, // first textures are the default textures
-                                                          material,
-                                                          material.shininess());
+                    object->addFeature<TexturedDrawable3D>(materialShader,
+                                                           meshId,
+                                                           *meshes[meshId],
+                                                           *instanceBuffers[meshId],
+                                                           textures, // first textures are the default textures
+                                                           material,
+                                                           material.shininess());
                 drawables.add(drawable);
             }
 
             // by default, there are no instances
             // add an InstanceDrawable3D to drawable.instanceDrawables() for each instance
         }
-
-        for(UnsignedInt childObjectId : objectData->children())
-        {
-            addObject(importer, childObjectId, object, textureOffset);
-        }
     }
+
+    return true;
 }

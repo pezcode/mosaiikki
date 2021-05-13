@@ -16,7 +16,7 @@
 #include <Magnum/Trade/AbstractImporter.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/Math/Range.h>
-#include <Magnum/Shaders/Phong.h>
+#include <Magnum/Shaders/PhongGL.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Texture.h>
 #include <Corrade/Containers/Pointer.h>
@@ -53,13 +53,7 @@ public:
     // hardcoded because Magnum always sets this to 80 for GLTF
     static constexpr Magnum::Float shininess = 20.0f;
 
-    bool loadScene(const char* file, Object3D& parent, Magnum::Range3D* bounds = nullptr);
-    void addObject(Magnum::Trade::AbstractImporter& importer,
-                   Magnum::UnsignedInt objectId,
-                   Object3D& parent,
-                   Magnum::UnsignedInt meshOffset = 0,
-                   Magnum::UnsignedInt materialOffset = 0,
-                   Magnum::UnsignedInt textureOffset = 0);
+    bool loadScene(const char* file, Object3D& root, Magnum::Range3D* bounds = nullptr);
 
     // normal meshes with default instance data (transformation, normal matrix, color)
     Corrade::Containers::Array<Corrade::Containers::Pointer<Magnum::GL::Mesh>> meshes;
@@ -96,6 +90,6 @@ public:
     Corrade::Containers::Array<Magnum::Vector4> lightPositions;
     Corrade::Containers::Array<Magnum::Color3> lightColors;
 
-    Magnum::Shaders::Phong materialShader;
+    Magnum::Shaders::PhongGL materialShader;
     VelocityShader velocityShader;
 };

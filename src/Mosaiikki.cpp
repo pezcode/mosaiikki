@@ -12,13 +12,16 @@
 #include <Magnum/MeshTools/FullScreenTriangle.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
+#include <Corrade/Containers/StaticArray.h>
 #include <Corrade/Utility/Arguments.h>
-#include <Corrade/Utility/FormatStl.h>
+#include <Corrade/Utility/Format.h>
 
 using namespace Magnum;
 using namespace Corrade;
 using namespace Magnum::Math::Literals;
 using namespace Feature;
+
+const char* Mosaiikki::NAME = "mosaiikki";
 
 Mosaiikki::Mosaiikki(const Arguments& arguments) :
     ImGuiApplication(arguments, NoCreate),
@@ -77,7 +80,7 @@ Mosaiikki::Mosaiikki(const Arguments& arguments) :
 
     // Debug output
 
-    profiler.setup(DebugTools::GLFrameProfiler::Value::FrameTime | DebugTools::GLFrameProfiler::Value::GpuDuration, 60);
+    profiler.setup(DebugTools::FrameProfilerGL::Value::FrameTime | DebugTools::FrameProfilerGL::Value::GpuDuration, 60);
 
 #ifdef CORRADE_IS_DEBUG_BUILD
     GL::Renderer::enable(GL::Renderer::Feature::DebugOutput);
@@ -198,8 +201,8 @@ void Mosaiikki::resizeFramebuffers(Vector2i size)
         framebuffers[i] = GL::Framebuffer({ { 0, 0 }, quarterSize });
         framebuffers[i].attachTextureLayer(GL::Framebuffer::ColorAttachment(0), colorAttachments, i /* layer */);
         framebuffers[i].attachTextureLayer(GL::Framebuffer::BufferAttachment::Depth, depthAttachments, i /* layer */);
-        framebuffers[i].mapForDraw({ { Shaders::Generic3D::ColorOutput, GL::Framebuffer::ColorAttachment(0) } });
-        framebuffers[i].setLabel(Utility::formatString("Framebuffer {} (quarter-res)", i + 1));
+        framebuffers[i].mapForDraw({ { Shaders::GenericGL3D::ColorOutput, GL::Framebuffer::ColorAttachment(0) } });
+        framebuffers[i].setLabel(Utility::format("Framebuffer {} (quarter-res)", i + 1));
 
         CORRADE_INTERNAL_ASSERT(framebuffers[i].checkStatus(GL::FramebufferTarget::Read) ==
                                 GL::Framebuffer::Status::Complete);
@@ -331,8 +334,9 @@ void Mosaiikki::drawEvent()
         GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
                                        GL::Renderer::BlendFunction::OneMinusSourceAlpha);
 
-        static Array<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit), Matrix4(Math::IdentityInit) };
-        Array<FRAMES, Matrix4> matrices;
+        static Containers::StaticArray<FRAMES, Matrix4> oldMatrices = { Matrix4(Math::IdentityInit),
+                                                                        Matrix4(Math::IdentityInit) };
+        Containers::StaticArray<FRAMES, Matrix4> matrices;
 
         // jitter viewport half a pixel to the right = one pixel in the full-res framebuffer
         // = width of NDC divided by full-res pixel count
@@ -547,12 +551,12 @@ void Mosaiikki::buildUI()
         if(ImGui::IsItemHovered())
             ImGui::SetTooltip(
                 "Calculate per-pixel velocity vectors instead of reprojecting the pixel position using the depth buffer");
-        {
-            ImGuiDisabledZone zone(!options.reconstruction.createVelocityBuffer);
-            ImGui::Checkbox("Re-use velocity depth", &options.reuseVelocityDepth);
-            if(ImGui::IsItemHovered())
-                ImGui::SetTooltip("Downsample and re-use the velocity pass depth buffer for the quarter-res pass");
-        }
+
+        ImGui::BeginDisabled(!options.reconstruction.createVelocityBuffer);
+        ImGui::Checkbox("Re-use velocity depth", &options.reuseVelocityDepth);
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip("Downsample and re-use the velocity pass depth buffer for the quarter-res pass");
+        ImGui::EndDisabled();
 
         ImGui::Checkbox("Always assume occlusion", &options.reconstruction.assumeOcclusion);
         if(ImGui::IsItemHovered())
@@ -560,13 +564,12 @@ void Mosaiikki::buildUI()
                 "Always assume an old pixel is occluded in the current frame if the pixel moved by more than a quarter-res pixel.\n"
                 "If this is disabled, a more expensive check against the average surrounding depth value is used.");
 
-        {
-            ImGuiDisabledZone zone(options.reconstruction.assumeOcclusion);
-            ImGui::SetNextItemWidth(ImGui::GetWindowWidth() / 2.0f); // slider size (without label)
-            ImGui::SliderFloat("Depth tolerance", &options.reconstruction.depthTolerance, 0.0f, 0.5f, "%.3f");
-            if(ImGui::IsItemHovered())
-                ImGui::SetTooltip("Maximum allowed view space depth difference before assuming occlusion");
-        }
+        ImGui::BeginDisabled(options.reconstruction.assumeOcclusion);
+        ImGui::SetNextItemWidth(ImGui::GetWindowWidth() / 2.0f); // slider size (without label)
+        ImGui::SliderFloat("Depth tolerance", &options.reconstruction.depthTolerance, 0.0f, 0.5f, "%.3f");
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip("Maximum allowed view space depth difference before assuming occlusion");
+        ImGui::EndDisabled();
 
         ImGui::Checkbox("Use differential blending", &options.reconstruction.differentialBlending);
         if(ImGui::IsItemHovered())
@@ -585,10 +588,9 @@ void Mosaiikki::buildUI()
                      debugSamplesOptions,
                      Containers::arraySize(debugSamplesOptions));
 
-        {
-            ImGuiDisabledZone zone(!options.reconstruction.createVelocityBuffer);
-            ImGui::Checkbox("Show velocity buffer", &options.reconstruction.debug.showVelocity);
-        }
+        ImGui::BeginDisabled(!options.reconstruction.createVelocityBuffer);
+        ImGui::Checkbox("Show velocity buffer", &options.reconstruction.debug.showVelocity);
+        ImGui::EndDisabled();
 
         ImGui::Checkbox("Show debug colors", &options.reconstruction.debug.showColors);
         if(ImGui::IsItemHovered())

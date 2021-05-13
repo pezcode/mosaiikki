@@ -4,7 +4,7 @@
 #include <Magnum/SceneGraph/Drawable.h>
 #include <Magnum/SceneGraph/AbstractObject.h>
 #include <Magnum/SceneGraph/Camera.h>
-#include <Magnum/Shaders/Phong.h>
+#include <Magnum/Shaders/PhongGL.h>
 #include <Magnum/Trade/PhongMaterialData.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Buffer.h>
@@ -24,7 +24,7 @@ public:
 
     explicit TexturedDrawable(
         Object& object,
-        Magnum::Shaders::Phong& shader,
+        Magnum::Shaders::PhongGL& shader,
         Magnum::UnsignedInt meshId,
         Magnum::GL::Mesh& mesh,
         Magnum::GL::Buffer& instanceBuffer,
@@ -73,15 +73,15 @@ public:
     }
 
     static bool isCompatibleMaterial(const Magnum::Trade::PhongMaterialData& material,
-                                     const Magnum::Shaders::Phong& shader)
+                                     const Magnum::Shaders::PhongGL& shader)
     {
-        const std::pair<Magnum::Shaders::Phong::Flag, Magnum::Trade::MaterialAttribute> combinations[] = {
-            { Magnum::Shaders::Phong::Flag::AmbientTexture, Magnum::Trade::MaterialAttribute::AmbientTexture },
-            { Magnum::Shaders::Phong::Flag::DiffuseTexture, Magnum::Trade::MaterialAttribute::DiffuseTexture },
+        const std::pair<Magnum::Shaders::PhongGL::Flag, Magnum::Trade::MaterialAttribute> combinations[] = {
+            { Magnum::Shaders::PhongGL::Flag::AmbientTexture, Magnum::Trade::MaterialAttribute::AmbientTexture },
+            { Magnum::Shaders::PhongGL::Flag::DiffuseTexture, Magnum::Trade::MaterialAttribute::DiffuseTexture },
             // TODO make this more generic, this only works for the GLTF test meshes
-            { Magnum::Shaders::Phong::Flag::SpecularTexture,
+            { Magnum::Shaders::PhongGL::Flag::SpecularTexture,
               Magnum::Trade::MaterialAttribute::SpecularGlossinessTexture },
-            { Magnum::Shaders::Phong::Flag::NormalTexture, Magnum::Trade::MaterialAttribute::NormalTexture }
+            { Magnum::Shaders::PhongGL::Flag::NormalTexture, Magnum::Trade::MaterialAttribute::NormalTexture }
         };
 
         for(const auto& combination : combinations)
@@ -138,7 +138,7 @@ private:
         shader.draw(_mesh);
     }
 
-    Magnum::Shaders::Phong& shader;
+    Magnum::Shaders::PhongGL& shader;
     Magnum::UnsignedInt _meshId;
     Magnum::GL::Mesh& _mesh;
     Magnum::GL::Buffer& instanceBuffer;

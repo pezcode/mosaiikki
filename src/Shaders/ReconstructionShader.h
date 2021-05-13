@@ -3,7 +3,7 @@
 #include <Magnum/GL/AbstractShaderProgram.h>
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/Buffer.h>
-#include <Magnum/Shaders/Generic.h>
+#include <Magnum/Shaders/GenericGL.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include <Corrade/Containers/EnumSet.h>
 #include "Options.h"
@@ -13,7 +13,7 @@ class ReconstructionShader : public Magnum::GL::AbstractShaderProgram
 public:
     enum : Magnum::UnsignedInt
     {
-        ColorOutput = Magnum::Shaders::Generic3D::ColorOutput
+        ColorOutput = Magnum::Shaders::GenericGL3D::ColorOutput
     };
 
     enum class Flag : Magnum::UnsignedShort

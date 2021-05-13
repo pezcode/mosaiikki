@@ -35,7 +35,7 @@ public:
 
     Corrade::Containers::Array<Magnum::GL::Texture2D> createTextures(Magnum::Vector2i size = { 1, 1 })
     {
-        Corrade::Containers::Array<Magnum::GL::Texture2D> textures(Corrade::Containers::NoInit, TextureCount);
+        Corrade::Containers::Array<Magnum::GL::Texture2D> textures(Corrade::NoInit, TextureCount);
         // NoInit requires placement new
         new(&textures[AmbientTextureId]) Magnum::GL::Texture2D(createTexture(Magnum::Color4(1.0f), size));
         new(&textures[DiffuseTextureId]) Magnum::GL::Texture2D(createTexture(Magnum::Color4(1.0f), size));
@@ -49,7 +49,7 @@ private:
     Magnum::GL::Texture2D createTexture(const Magnum::Color4& color, Magnum::Vector2i size)
     {
         Corrade::Containers::Array<Magnum::Color4ub> data(
-            Corrade::Containers::DirectInit, size.product(), Magnum::Math::pack<Magnum::Color4ub>(color));
+            Corrade::DirectInit, size.product(), Magnum::Math::pack<Magnum::Color4ub>(color));
         Magnum::ImageView2D image { Magnum::PixelFormat::RGBA8Unorm, size, data };
 
         Magnum::GL::Texture2D texture;

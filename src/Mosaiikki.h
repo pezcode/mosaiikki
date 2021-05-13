@@ -22,7 +22,7 @@ class Mosaiikki : public ImGuiApplication
 public:
     explicit Mosaiikki(const Arguments& arguments);
 
-    static constexpr char const* NAME = "mosaiikki";
+    static const char* NAME;
 
 private:
     virtual void drawEvent() override;
@@ -44,7 +44,7 @@ private:
     Corrade::Containers::Pointer<Corrade::Utility::Warning> _warning;
     Corrade::Containers::Pointer<Corrade::Utility::Error> _error;
 
-    Magnum::DebugTools::GLFrameProfiler profiler;
+    Magnum::DebugTools::FrameProfilerGL profiler;
 
     // scene
 

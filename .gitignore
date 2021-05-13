@@ -1,14 +1,16 @@
-/build*/*
-/images/temp/*
+/build*/
+/out/
+/images/temp/
 
 # Large files
-/resources/models/*
+/resources/models/
 
 # Graphic debuggers
 /*.cap
-/Nsight/*
+/Nsight/
 
-/.vscode/*
+/.vs/
+/.vscode/
 !/.vscode/launch.json
 !/.vscode/cmake-variants.json
 

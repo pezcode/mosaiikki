@@ -2,6 +2,8 @@
 
 #include <Magnum/GL/Shader.h>
 #include <Corrade/Containers/Reference.h>
+#include <Corrade/Containers/StringView.h>
+#include <Corrade/Containers/StringStl.h>
 #include <Corrade/Utility/Resource.h>
 #include <Corrade/Utility/FormatStl.h>
 
@@ -20,13 +22,13 @@ VelocityShader::VelocityShader(const Flags flags) : _flags(flags)
     vert.addSource(Utility::formatString("#define POSITION_ATTRIBUTE_LOCATION {}\n"
                                          "#define TRANSFORMATION_ATTRIBUTE_LOCATION {}\n"
                                          "#define OLD_TRANSFORMATION_ATTRIBUTE_LOCATION {}\n",
-                                         Shaders::Generic3D::Position::Location,
+                                         Shaders::GenericGL3D::Position::Location,
                                          TransformationMatrix::Location,
                                          OldTransformationMatrix::Location));
-    vert.addSource(rs.get("VelocityShader.vert"));
+    vert.addSource(rs.getString("VelocityShader.vert"));
 
     frag.addSource(Utility::formatString("#define VELOCITY_OUTPUT_ATTRIBUTE_LOCATION {}\n", VelocityOutput));
-    frag.addSource(rs.get("VelocityShader.frag"));
+    frag.addSource(rs.getString("VelocityShader.frag"));
 
     CORRADE_INTERNAL_ASSERT_OUTPUT(GL::Shader::compile({ vert, frag }));
     attachShaders({ vert, frag });

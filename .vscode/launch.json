@@ -12,8 +12,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${command:cmake.buildDirectory}",
-            "environment": [],
-            "externalConsole": false
+            "environment": []
         }
     ]
 }

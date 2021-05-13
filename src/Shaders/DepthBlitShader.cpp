@@ -4,6 +4,8 @@
 #include <Magnum/GL/Texture.h>
 #include <Corrade/Containers/Reference.h>
 #include <Corrade/Utility/Resource.h>
+#include <Corrade/Containers/StringView.h>
+#include <Corrade/Containers/StringStl.h>
 
 using namespace Magnum;
 
@@ -15,8 +17,8 @@ DepthBlitShader::DepthBlitShader()
     GL::Shader frag(GLVersion, GL::Shader::Type::Fragment);
 
     Utility::Resource rs("shaders");
-    vert.addSource(rs.get("DepthBlitShader.vert"));
-    frag.addSource(rs.get("DepthBlitShader.frag"));
+    vert.addSource(rs.getString("DepthBlitShader.vert"));
+    frag.addSource(rs.getString("DepthBlitShader.frag"));
 
     CORRADE_INTERNAL_ASSERT_OUTPUT(GL::Shader::compile({ vert, frag }));
     attachShaders({ vert, frag });

@@ -60,7 +60,7 @@ find_package(Magnum REQUIRED
     AnyImageImporter
 )
 find_package(MagnumPlugins REQUIRED
-    TinyGltfImporter
+    GltfImporter
     StbImageImporter
 )
 find_package(MagnumIntegration REQUIRED
@@ -87,7 +87,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Magnum::AnySceneImporter
     Magnum::AnyImageImporter
     Magnum::DebugTools
-    MagnumPlugins::TinyGltfImporter
+    MagnumPlugins::GltfImporter
     MagnumPlugins::StbImageImporter
     MagnumIntegration::ImGui
 )
